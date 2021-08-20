@@ -1,0 +1,20 @@
+# Completar documentación
+  - README.md
+  - HOW_TO_CONTRIBUTE
+  - CODE_OF_CONDUCT
+  
+# 1, 2, 3 responda otra vez
+Lista de cosas que suele haber en proper y no estan planteadas
+
+  - frecuency
+  - recursion
+  
+# añadir parametro al cuatificador
+Tiempo de ejecucion en vez de numero de samples.
+O ambas y la que ocurra primero
+
+# completar test
+De los modulos domain y quantifier
+
+# integrar con pytest
+que el forall se transforme en un test parametrizado
