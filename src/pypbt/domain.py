@@ -251,9 +251,9 @@ def is_domain(arg: Any) -> bool:
     return isinstance(arg, Domain)
 
 
-def desugar_domain(arg: DomainCoercible, finite: bool= False) -> Domain:
+def desugar_domain(arg: DomainCoercible, finite: Optional[bool]= None) -> Domain:
     if is_domain(arg):
-        return arg.as_finite(finite)
+        return arg if finite is None else arg.as_finite(finite)
     elif isinstance(arg, Iterable):
         return FiniteIterableAsDomain(arg) if finite else IterableAsDomain(arg)
     else:
