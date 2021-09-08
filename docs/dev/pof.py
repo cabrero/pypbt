@@ -6,11 +6,10 @@ import inspect
 import textwrap
 from typing import Iterable, Iterator
 
-import faker
 
-from py_qc import domain
+from pypbt import domain
 
-from py_qc.quantifier import exists, forall
+from pypbt.quantifier import exists, forall
 
 
 """
@@ -63,7 +62,7 @@ vs
 
 ```python
 @forall(xs= domain.List(domain.Int(), min_len= 4, max_len= 4))
-@forall(x= lambda xs: from_iterable(xs, finite= True))
+@forall(x= lambda xs: domain(xs, finite= True))
 def list_and_element_from_it(xs, x):
     return x in xs
 ```
@@ -74,7 +73,7 @@ exactamente igual, en la segunda versión necesitaríamos un parámetro
 del tipo:
 
 ```python
-@forall(x= lambda xs: from_iterable(xs, finite= True), n_samples= 1)
+@forall(x= lambda xs: domain(xs, finite= True), n_samples= 1)
 ```
 
 Pero no le veo el beneficio.
@@ -234,7 +233,7 @@ def superstupid_prop_2(x):
 
 
 @forall(xs= domain.List(domain.Int(), min_len= 4, max_len= 4))
-@forall(x= lambda xs: domain.from_iterable(xs, finite= True))
+@forall(x= lambda xs: domain.domain(xs, finite= True))
 def list_and_element_from_it(xs, x):
     return x in xs
 
@@ -261,12 +260,12 @@ def la_suma_es_conmutativa(x, y):
 
 
 @forall(x= domain.Int())
-@exists(y= domain.from_iterable(range(1, 9), finite= True))
+@exists(y= domain.domain(range(1, 9), finite= True))
 def stupid_prop(x, y):
     return x % y > 1
 
 
-@exists(x= domain.from_iterable(range(10), finite= True))
+@exists(x= domain.domain(range(10), finite= True))
 def even_more_stupid_prop(x):
     return x > 7
 
