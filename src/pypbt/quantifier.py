@@ -157,7 +157,7 @@ class ForAll:
                 yield checked
 
     def __call__(self):
-        for i, result in enumerate(self.qc({})):
+        for i, result in enumerate(self.qc({}), 1):
             if result:
                 print(".", end= "", flush= True)
             else:
