@@ -26,6 +26,12 @@ def test_take_positive(n: int, iterable: Iterable, result: tuple):
     assert tuple(domain.take(n, iterable)) == result
 
 
+@pytest.mark.parametrize("n", [0, 1, 3, 6, 20, 21, 100, 101])
+def test_take_len(n: int):
+    iterable = list(range(101))
+    assert len(tuple(domain.take(n, iterable))) == n
+
+    
 @pytest.mark.parametrize(
     "n, iterable",
     [
