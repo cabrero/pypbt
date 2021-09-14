@@ -373,6 +373,32 @@ class FiniteIterableAsDomain(DomainAbs):
         return f"FiniteDomain({self.iterable})"
 
 
+class Sublists(DomainAbs):
+    def __init__(self, l: list, finite: bool= False):
+        self.l = l
+        self.is_finite = finite
+
+    def __iter__(self) -> Iterator:
+        yield []
+        n = len(self.l)
+        while True:
+            a = _random.randint(0, n)
+            b = _random.randint(0, n)
+            a, b = (a, b + 1) if a <= b else (b, a + 1)
+            yield self.l[a:b]
+        
+    def finite_iterator(self) -> Iterator:
+        if not self.is_finite:
+            raise RuntimeError("Domain is not marked as finite enough")
+        yield []
+        n = len(self.l)
+        for a in range(n):
+            for b in range(a, n):
+                yield self.l[a:b+1]
+
+    def __str__(self):
+        return f"Sublists({self.l}"
+        
 
 class Int(DomainAbs):
     def __init__(self, max_value: Optional[int]= None):
@@ -437,7 +463,7 @@ class List(DomainAbs):
     def __str__(self):
         return f"List({self.domain})"
 
-
+    
 class Tuple(DomainAbs):
     def __init__(self, *domain_objs: tuple(DomainCoercible,...)):
         self.domains = [desugar_domain(d) for d in domain_objs]
