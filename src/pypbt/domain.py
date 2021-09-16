@@ -270,9 +270,9 @@ def domain(d: Any, finite: bool= False) -> Domain:
 RecStepFun = Callable[['RecDomainStep'], 'Domain']
 
 
-def recursive(fun: RecStepFun) -> RecDomain:
+def recursive(fun: RecStepFun, **props) -> RecDomain:
     def rec_dom_factory():
-        return RecDomain(fun)
+        return RecDomain(fun, **props)
     return rec_dom_factory
 
 

@@ -348,7 +348,7 @@ def tree():
     Tree = domain.recursive(lambda Tree: (
         domain.Boolean() |
         domain.Tuple(Tree(max_depth= 4), Tree(max_depth= 7))
-    ))
+    ), max_depth= 8)
     
     it = iter(Tree())
     for _ in range(10):
@@ -378,13 +378,13 @@ class Job(domain.Domain):
 
 
 if __name__ == '__main__':
-    # for i in range(1000,1200):
-    #     print(i)
-    #     domain.fake.seed_instance(i)
-    #     #tree()
-    #     json()
-    #     print()
     test()
+    for i in range(1000,1200):
+        print(i)
+        domain.set_seed(i)
+        tree()
+        # json()
+        print()
 
     #job = iter(Job())
     #for i in range(10):
