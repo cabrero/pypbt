@@ -3,7 +3,7 @@
 This library implements functions to write _property based tests_ in
 python.
 
-It started as a proof of concept. By now there is still some missing
+It started as a proof of concept. By now there are still some missing
 features:
 
   - Shrinking
@@ -23,7 +23,7 @@ pip install pypbt
 
 ## Documentation
 
-See [documentation on readthedocs](htpps://pypbt.readthedocs.io/en/latest/).
+See [documentation on readthedocs](https://pypbt.readthedocs.io/en/latest/).
 
 ## Support
 
