@@ -8,9 +8,9 @@ import sys
 
 
 def run_props(file: Path) -> None:
-    parent = file.parent
+    parent = str(file.parent)
     module_name = file.stem
-    if parent != ".":
+    if parent not in sys.path:
         sys.path.append(parent)
     module = importlib.import_module(module_name)
     for name in dir(module):
@@ -21,8 +21,7 @@ def run_props(file: Path) -> None:
             print()
 
 
-
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
         cmd = Path(sys.argv[0]).name
         print(f"USAGE: {cmd} <props_file>")
@@ -35,3 +34,6 @@ if __name__ == "__main__":
 
     run_props(file)
 
+
+if __name__ == '__main__':
+    main()
