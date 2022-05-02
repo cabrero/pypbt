@@ -189,8 +189,7 @@ class ForAll(QCProperty):
             domain_samples = take(self.n_samples, domain_obj)
             
         for sample in domain_samples:
-            for checked in qcproperty.qc({**env, quantifed_var: sample}):
-                yield checked
+            yield from qcproperty.qc({**env, quantifed_var: sample})
 
     def __str__(self):
         return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
