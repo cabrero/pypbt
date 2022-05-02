@@ -17,7 +17,17 @@ def run_props(file: Path) -> None:
         if name.startswith("prop_"):
             prop = getattr(module, name)
             print(prop)
-            prop()
+            for i, result in enumerate(prop.qc({}), 1):
+                if result:
+                    print(".", end= "", flush= True)
+                else:
+                    print("x")
+                    print(f"After {i} tests" if i>1 else "After 1 test")
+                    print(result)
+                    break
+            else:
+                print()
+                print(f"Passed {i} tests" if i>1 else "Passed 1 test")
             print()
 
 

@@ -140,11 +140,11 @@ pequeña como para poder comprobar una propiedad para todos los objetos
 del dominio. En estos casos podríamos incluso usar un _cuantificador
 existencial_.
 
-Comprobar si un dominio es finito es demasiado complejo. Es
-reponsabilidad del cliente marcar los dominios como finitos:
+Comprobar si un dominio es 'suficientemente' finito es demasiado
+complejo. Es reponsabilidad del cliente marcar los dominios como tales:
 
 ```python
-@exists(y= domain.finite_domain(range(1,9)))
+@exists(y= domain.exhaustive_domain(range(1,9)))
 ```
 
 # Dominios "recursivos"
@@ -231,8 +231,8 @@ def take(n: int, iterable: Iterable) -> Iterator:
 # Interface de los objetos que representan un dominio.
 @runtime_checkable
 class Domain(Protocol):
-    is_finite: bool
-    def as_finite(self, finite: bool) -> Domain: ...
+    is_exhaustive: bool
+    def as_exhaustive(self, exhaustive: bool) -> Domain: ...
     def __iter__(self) -> Iterator: ...
     def __or__(self, other: 'DomainCoercible') -> Domain: ...
     def __ror__(self, other: 'DomainCoercible') -> Domain: ...
@@ -251,11 +251,11 @@ def is_domain(arg: Any) -> bool:
     return isinstance(arg, Domain)
 
 
-def desugar_domain(arg: DomainCoercible, finite: Optional[bool]= None) -> Domain:
+def desugar_domain(arg: DomainCoercible, exhaustive: Optional[bool]= None) -> Domain:
     if is_domain(arg):
-        return arg if finite is None else arg.as_finite(finite)
+        return arg if exhaustive is None else arg.as_exhaustive(exhaustive)
     elif isinstance(arg, Iterable):
-        return FiniteIterableAsDomain(arg) if finite else IterableAsDomain(arg)
+        return ExhaustiveIterableAsDomain(arg) if exhaustive else IterableAsDomain(arg)
     else:
         # TODO: Otras formas de declarar un dominio, p.e.
         #    - tipos básicos: int, str, ...
@@ -263,8 +263,8 @@ def desugar_domain(arg: DomainCoercible, finite: Optional[bool]= None) -> Domain
         raise TypeError(f"Cannot use {arg} as a domain here")
 
 
-def domain(d: Any, finite: bool= False) -> Domain:
-    return desugar_domain(d, finite)
+def domain(d: Any, exhaustive: bool= False) -> Domain:
+    return desugar_domain(d, exhaustive)
 
             
 RecStepFun = Callable[['RecDomainStep'], 'Domain']
@@ -296,15 +296,15 @@ samples:
 """
 
 class DomainAbs(Domain):
-    is_finite : bool = False
+    is_exhaustive : bool = False
 
-    def as_finite(self, finite: bool) -> Domain:
-        if finite:
-            raise TypeError(f"domain cannot be marked as finite: {self}")
+    def as_exhaustive(self, exhaustive: bool) -> Domain:
+        if exhaustive:
+            raise TypeError(f"domain cannot be marked as exhaustive: {self}")
         return self
     
-    def finite_iterator(self) -> Iterator:
-        raise TypeError(f"domain is not finite enough: {self}")
+    def exhaustive_iterator(self) -> Iterator:
+        raise TypeError(f"domain is not exhaustive: {self}")
     
     def __iter__(self) -> Iterator:
         raise NotImplementedError()
@@ -349,14 +349,14 @@ class IterableAsDomain(DomainAbs):
         return f"Domain({self.iterable})"
 
     
-class FiniteIterableAsDomain(DomainAbs):
-    is_finite : bool = True
+class ExhaustiveIterableAsDomain(DomainAbs):
+    is_exhaustive : bool = True
 
     def __init__(self, iterable: Iterable):
         self.iterable = tuple(iterable)
 
-    def as_finite(self, finite: bool) -> Domain:
-        return self if finite else IterableAsDomain(self.iterable)
+    def as_exhaustive(self, exhaustive: bool) -> Domain:
+        return self if exhaustive else IterableAsDomain(self.iterable)
 
     def __iter__(self) -> Iterator:
         # Importante: barajar los items por si acaso el número de muestras que
@@ -366,17 +366,17 @@ class FiniteIterableAsDomain(DomainAbs):
         while True:
             yield from samples
     
-    def finite_iterator(self) -> Iterator:
+    def exhaustive_iterator(self) -> Iterator:
         return iter(self.iterable)
     
     def __str__(self):
-        return f"FiniteDomain({self.iterable})"
+        return f"ExhaustiveDomain({self.iterable})"
 
 
 class Sublists(DomainAbs):
-    def __init__(self, l: list, finite: bool= False):
+    def __init__(self, l: list, exhaustive: bool= False):
         self.l = l
-        self.is_finite = finite
+        self.is_exhaustive = exhaustive
 
     def __iter__(self) -> Iterator:
         yield []
@@ -387,9 +387,9 @@ class Sublists(DomainAbs):
             a, b = (a, b + 1) if a <= b else (b, a + 1)
             yield self.l[a:b]
         
-    def finite_iterator(self) -> Iterator:
-        if not self.is_finite:
-            raise RuntimeError("Domain is not marked as finite enough")
+    def exhaustive_iterator(self) -> Iterator:
+        if not self.is_exhaustive:
+            raise RuntimeError("Domain is not marked as exhaustive")
         yield []
         n = len(self.l)
         for a in range(n):
@@ -473,8 +473,8 @@ class Tuple(DomainAbs):
         while True:
             yield tuple(next(it) for it in iterators)
 
-    def finite_iterator(self, env: Env) -> Iterator:
-        iterators = [domain.finite_iterator(env) for domain in self.domains]
+    def exhaustive_iterator(self, env: Env) -> Iterator:
+        iterators = [domain.exhaustive_iterator(env) for domain in self.domains]
         return zip(*iterators)
 
     def __str__(self):
@@ -506,18 +506,18 @@ class Dict(DomainAbs):
         
         
 class Boolean(DomainAbs):
-    is_finite : bool = True
+    is_exhaustive : bool = True
 
-    def as_finite(self, finite: bool) -> Domain:
-        if not finite:
-            raise TypeError(f"do no mark boolean as infinite: {self}")
+    def as_exhaustive(self, exhaustive: bool) -> Domain:
+        if not exhaustive:
+            raise TypeError(f"do no mark boolean as not exhaustive: {self}")
         return self
     
     def __iter__(self) -> Iterator:
         while True:
             yield _random.choice([True, False])
 
-    def finite_iterator(self) -> Iterator:
+    def exhaustive_iterator(self) -> Iterator:
         yield False
         yield True
 
@@ -526,18 +526,18 @@ class Boolean(DomainAbs):
 
 
 class None_(DomainAbs):
-    is_finite : bool = True
+    is_exhaustive : bool = True
 
-    def as_finite(self, finite: bool) -> Domain:
-        if not finite:
-            raise TypeError(f"do no mark None as not infinite: {self}")
+    def as_exhaustive(self, exhaustive: bool) -> Domain:
+        if not exhaustive:
+            raise TypeError(f"do no mark None as not exhaustive: {self}")
         return self
         
     def __iter__(self) -> Iterator:
         while True:
             yield None
 
-    def finite_iterator(self) -> Iterator:
+    def exhaustive_iterator(self) -> Iterator:
         yield None
         
     def __str__(self) -> str:
@@ -548,7 +548,7 @@ class DomainUnion(DomainAbs):
     a: InitVar[Domain]
     b: InitVar[Domain]
     domains: list[Domain]= field(init= False)
-    is_finite: bool= field(init= False)
+    is_exhaustive: bool= field(init= False)
     
     def __init__(self, a: DomainCoercible, b: DomainCoercible):
         if isinstance(a, DomainUnion):
@@ -560,10 +560,10 @@ class DomainUnion(DomainAbs):
         else:
             b = [desugar_domain(b)]
         self.domains = [*a, *b]
-        self.is_finite = all(d.is_finite for d in self.domains)
+        self.is_exhaustive = all(d.is_exhaustive for d in self.domains)
 
-    def as_finite(self, finite: bool) -> Domain:
-        raise TypeError(f"can not mark union as finite: {self}")
+    def as_exhaustive(self, exhaustive: bool) -> Domain:
+        raise TypeError(f"can not mark union as exhaustive: {self}")
             
     def __iter__(self) -> Iterator:
         iterators = [iter(domain) for domain in self.domains]

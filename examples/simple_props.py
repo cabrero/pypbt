@@ -13,7 +13,7 @@ def prop_superstupid_2(x):
 
 
 @forall(xs= domain.List(domain.Int(), min_len= 4, max_len= 4))
-@forall(x= lambda xs: domain.domain(xs, finite= True))
+@forall(x= lambda xs: domain.domain(xs, exhaustive= True))
 def prop_list_and_element_from_it(xs, x):
     return x in xs
 
@@ -40,12 +40,12 @@ def prop_la_suma_es_conmutativa(x, y):
 
 
 @forall(x= domain.Int())
-@exists(y= domain.domain(range(1, 9), finite= True))
+@exists(y= domain.domain(range(1, 9), exhaustive= True))
 def prop_stupid(x, y):
     return x % y > 1
 
 
-@exists(x= domain.domain(range(10), finite= True))
+@exists(x= domain.domain(range(10), exhaustive= True))
 def prop_even_more_stupid(x):
     return x > 7
 

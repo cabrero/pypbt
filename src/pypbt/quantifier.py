@@ -2,9 +2,41 @@ from __future__ import annotations
 
 import inspect
 import textwrap
-from typing import Callable, NamedTuple, Union
+from typing import Callable, get_args, Literal, NamedTuple, Union
 
 from .domain import desugar_domain, Domain, DomainCoercible, Env, take
+
+
+# Property = ForAll Property
+#          | Exists Property
+#          | Predicate
+#
+# Posibles críticas a esta definición de `Property`:
+#
+#   - `Property = Predicate` es un caso muy extremo de propiedad.
+#
+#   - Nada impide que el programado construya mal una propiedad. En concreto
+#     puede terner variables libres (en nuestro caso, sin cuantificar).
+#     Sin embargo el conjunto de errores que puede cometer un programador es
+#     infinito. No podemos evitarlos todos.
+#
+# Las variables libres en un predicado pueden no ser tal cosa si incorporamos
+# conceptos como las `fixtures` de `pytest`. En este caso son variables que
+# no están ligadas en ningún cuantificador, pero están ligadas en otro contexto
+# más global (y compartido por varias propiedades).
+
+
+# :( property es una palabra clave en python
+class QCProperty: pass
+
+
+def is_qcproperty(x):
+    return isinstance(x, QCProperty)
+
+
+VarName = str
+
+
 
 
 #---------------------------------------------------------------------------
@@ -82,6 +114,8 @@ def _preprocess_domain(arg: QArg) -> Domain:
 
 class Left:
     def __init__(self, e):
+        # TODO: e puede ser Env o [Env,Exception]
+        #       regularizar esto
         self.e = e
 
     def __bool__(self):
@@ -91,35 +125,27 @@ class Left:
         return f"Left({self.e})"
     
     
-def is_checkable(x):
-    return hasattr(x, 'qc')
-
-
 # -- Either bool
-Checked = Union[bool, Left]
-
-Checkable  = Union['Predicate', 'ForAll', 'Exists']
-
-
-Pred = Callable[[...], bool] # Función de predicado
-
-
-PropOrPred = Union['Predicate', 'ForAll', 'Exists', Pred]
+CheckResult = Union[Left, Literal[True]]
 
 
 #---------------------------------------------------------------------------
 # Predicados
 #---------------------------------------------------------------------------
-# Wrapper de predicado para hacerlo Checkable
-class Predicate:
-    def __init__(self, pred: Pred):
+# Implementación (función python) de un predicado
+PredicateFun = Callable[..., bool]
+
+
+# Adaptador de predicado a QC.
+class Predicate(QCProperty):
+    def __init__(self, pred: PredicateFun):
         self.pred = pred
         
-    def qc(self, env: Env) -> Iterator[Checked]:
+    def qc(self, env: Env) -> Iterator[CheckResult]:
         try:
             result = self.pred(**env) or Left(env)
         except Exception as e:
-            result = Left(e)
+            result = Left((env, e))
         yield result
 
     def __str__(self):
@@ -129,87 +155,87 @@ class Predicate:
 #---------------------------------------------------------------------------
 # Cuantificadores
 #---------------------------------------------------------------------------
-class ForAll:
-    def __init__(self, var_name: str, domain_obj: Domain, checkable: Checkable, n_samples: int):
-        self.var_name = var_name
+# Podríamos implementar los cuantificadores como funciones (cierres).
+# Los implementamos así para incluir otras operaciones interesantes
+# como p.e. `__str__`
+
+# Todas las propiedades se "ejecutan" en un `Environment` que contiene
+# las variables ligadas por cada uno de los cuantificadores.
+
+
+class ForAll(QCProperty):
+    def __init__(self,
+                 quantifed_var: VarName,
+                 domain_obj: Domain,
+                 qcproperty: QCProperty,
+                 n_samples: int):
+        self.quantifed_var = quantifed_var
         self.domain_obj = domain_obj
-        self.checkable = checkable
+        self.qcproperty = qcproperty
         self.n_samples = n_samples
 
-    def qc(self, env: Env) -> Iterator[Checked]:
-        # Puesto que podemos componer varios cuantificadores, tenemos que ir
-        # acumulando las variables ligadas en el environment
-        var_name = self.var_name
-        if var_name in env:
-            raise TypeError(f"Variable {var_name} is shadowed in {self}")
+    def qc(self, env: Env) -> Iterator[CheckResult]:
+        quantifed_var = self.quantifed_var
+        if quantifed_var in env:
+            raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
 
         domain_obj = bind_and_eval(self.domain_obj, env)
-        checkable = self.checkable
+        qcproperty = self.qcproperty
 
         # Si el dominio está marcado como finito recorremos el dominio entero
-        if domain_obj.is_finite:
-            domain_samples = domain_obj.finite_iterator()
+        if domain_obj.is_exhaustive:
+            domain_samples = domain_obj.exhaustive_iterator()
         else:
             domain_samples = take(self.n_samples, domain_obj)
             
         for sample in domain_samples:
-            for checked in checkable.qc({**env, var_name: sample}):
+            for checked in qcproperty.qc({**env, quantifed_var: sample}):
                 yield checked
 
-    def __call__(self):
-        for i, result in enumerate(self.qc({}), 1):
-            if result:
-                print(".", end= "", flush= True)
-            else:
-                print("x")
-                print(f"After {i} tests")
-                print(result)
-                break
-        else:
-            print()
-            print(f"Passed {i} tests")
-        print()
-            
     def __str__(self):
-        return f"ForAll {self.var_name}: {self.domain_obj}\n{textwrap.indent(str(self.checkable), '  ')}"
+        return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
+                f"{textwrap.indent(str(self.qcproperty), '  ')}")
         
 
         
         
-class Exists:
-    def __init__(self, var_name: str, domain_obj: Domain, checkable: Checkable):
-        if not isinstance(checkable, Predicate):
-            raise TypeError(f"Cannot check Exists on another quantifier")
+class Exists(QCProperty):
+    def __init__(self,
+                 quantifed_var: VarName,
+                 domain_obj: Domain,
+                 qcproperty: QCProperty):
+        if not isinstance(qcproperty, Predicate):
+            # TODO: Podríamos comprobar que todos los cuantificadores dentro
+            #       de este Exists son exhaustivos ?
+            raise TypeError(f"This tool cannot check Exists on another quantifier")
         
-        self.var_name = var_name
+        self.quantifed_var = quantifed_var
         self.domain_obj = domain_obj
-        self.checkable = checkable
+        self.qcproperty = qcproperty
 
         
-    def qc(self, env: ENV) -> Iterator[Checked]:
-        var_name = self.var_name
-        if var_name in env:
-            raise TypeError(f"Variable {var_name} is shadowed in {self}")
+    def qc(self, env: Env) -> Iterator[CheckResult]:
+        quantifed_var = self.quantifed_var
+        if quantifed_var in env:
+            raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
 
         domain_obj = bind_and_eval(self.domain_obj, env)
-        checkable = self.checkable
+        qcproperty = self.qcproperty
 
-        if not domain_obj.is_finite:
-            raise TypeError(f"Cannot check existence in non finite domain: {domain_obj}")
+        if not domain_obj.is_exhaustive:
+            raise TypeError(f"It's not possible to check existence "
+                            f"in non exhaustive domain: {domain_obj}")
         
-        for sample in domain_obj.finite_iterator():
-            if any(checkable.qc({**env, var_name: sample})):
+        for sample in domain_obj.exhaustive_iterator():
+            if any(qcproperty.qc({**env, quantifed_var: sample})):
                 yield True
                 return
                 
         yield Left(f"{env} -> {str(self)}")
         return
 
-    def __call__(self):
-        return self.qc({})
-    
     def __str__(self):
-        return f"Exists {self.var_name}: {self.domain_obj} / {self.checkable}"
+        return f"Exists {self.quantifed_var}: {self.domain_obj} / {self.qcproperty}"
         
 
 
@@ -219,32 +245,34 @@ class Exists:
 #---------------------------------------------------------------------------
 def forall(n_samples: int= 100, **binds):
     if len(binds) != 1:
+        # TODO: permitir esto como "azúcar sintáctico" ?
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
     
-    def factory(prop_or_pred):
-        if is_checkable(prop_or_pred):
-            checkable = prop_or_pred
+    def factory(arg):
+        if is_qcproperty(arg):
+            qcproperty = arg
         else:
-            checkable = Predicate(prop_or_pred)
-        var_name, obj = list(binds.items())[0]
+            qcproperty = Predicate(arg)
+        quantifed_var, obj = list(binds.items())[0]
         domain_obj = _preprocess_domain(obj)
-        return ForAll(var_name, domain_obj, checkable, n_samples= n_samples)
+        return ForAll(quantifed_var, domain_obj, qcproperty, n_samples= n_samples)
 
     return factory
 
 
 def exists(**binds):
     if len(binds) != 1:
+        # TODO: permitir esto como "azúcar sintáctico" ?
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
 
-    def factory(prop_or_pred):
-        if is_checkable(prop_or_pred):
-            checkable = prop_or_pred
+    def factory(arg):
+        if is_qcproperty(arg):
+            qcproperty = arg
         else:
-            checkable = Predicate(prop_or_pred)
-        var_name, obj = list(binds.items())[0]
+            qcproperty = Predicate(arg)
+        quantifed_var, obj = list(binds.items())[0]
         domain_obj = _preprocess_domain(obj)
-        return Exists(var_name, domain_obj, checkable)
+        return Exists(quantifed_var, domain_obj, qcproperty)
 
     return factory
 
