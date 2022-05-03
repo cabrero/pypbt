@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 import sys
 
+from pypbt.quantifier import is_qcproperty
 
 def run_props(file: Path) -> None:
     parent = str(file.parent)
@@ -14,8 +15,9 @@ def run_props(file: Path) -> None:
         sys.path.append(parent)
     module = importlib.import_module(module_name)
     for name in dir(module):
-        if name.startswith("prop_"):
-            prop = getattr(module, name)
+        obj = getattr(module, name)
+        if is_qcproperty(obj):
+            prop = obj
             print(prop)
             for i, result in enumerate(prop(env= {}), 1):
                 if result:
