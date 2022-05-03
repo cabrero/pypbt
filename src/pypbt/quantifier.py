@@ -141,7 +141,7 @@ class Predicate(QCProperty):
     def __init__(self, pred: PredicateFun):
         self.pred = pred
         
-    def qc(self, env: Env) -> Iterator[CheckResult]:
+    def __call__(self, /, env: Env) -> Iterator[CheckResult]:
         try:
             result = self.pred(**env) or Left(env)
         except Exception as e:
@@ -174,7 +174,7 @@ class ForAll(QCProperty):
         self.qcproperty = qcproperty
         self.n_samples = n_samples
 
-    def qc(self, env: Env) -> Iterator[CheckResult]:
+    def __call__(self, /, env: Env) -> Iterator[CheckResult]:
         quantifed_var = self.quantifed_var
         if quantifed_var in env:
             raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
@@ -189,7 +189,7 @@ class ForAll(QCProperty):
             domain_samples = take(self.n_samples, domain_obj)
             
         for sample in domain_samples:
-            yield from qcproperty.qc({**env, quantifed_var: sample})
+            yield from qcproperty(env= {**env, quantifed_var: sample})
 
     def __str__(self):
         return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
@@ -206,6 +206,8 @@ class Exists(QCProperty):
         if not isinstance(qcproperty, Predicate):
             # TODO: Podríamos comprobar que todos los cuantificadores dentro
             #       de este Exists son exhaustivos ?
+            #       Seguramente es más sencillo añadir un parámetro opcional
+            #       a la función `qc` que indique si tiene que ser exhaustive
             raise TypeError(f"This tool cannot check Exists on another quantifier")
         
         self.quantifed_var = quantifed_var
@@ -213,7 +215,7 @@ class Exists(QCProperty):
         self.qcproperty = qcproperty
 
         
-    def qc(self, env: Env) -> Iterator[CheckResult]:
+    def __call__(self, /, env: Env) -> Iterator[CheckResult]:
         quantifed_var = self.quantifed_var
         if quantifed_var in env:
             raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
@@ -226,7 +228,7 @@ class Exists(QCProperty):
                             f"in non exhaustive domain: {domain_obj}")
         
         for sample in domain_obj.exhaustive_iterator():
-            if any(qcproperty.qc({**env, quantifed_var: sample})):
+            if any(qcproperty(env= {**env, quantifed_var: sample})):
                 yield True
                 return
                 
@@ -245,6 +247,12 @@ class Exists(QCProperty):
 def forall(n_samples: int= 100, **binds):
     if len(binds) != 1:
         # TODO: permitir esto como "azúcar sintáctico" ?
+        #       Es decir que
+        #           @forall(x= ..., y= ...)
+        #       sea lo mismo que
+        #           @forall(x= ...)
+        #           @forall(y= ...)
+        #       La pregunta es si el código es más inteligible.
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
     
     def factory(arg):

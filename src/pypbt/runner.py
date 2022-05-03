@@ -17,7 +17,7 @@ def run_props(file: Path) -> None:
         if name.startswith("prop_"):
             prop = getattr(module, name)
             print(prop)
-            for i, result in enumerate(prop.qc({}), 1):
+            for i, result in enumerate(prop(env= {}), 1):
                 if result:
                     print(".", end= "", flush= True)
                 else:
