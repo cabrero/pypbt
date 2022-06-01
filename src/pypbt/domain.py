@@ -401,17 +401,22 @@ class Sublists(DomainAbs):
         
 
 class Int(DomainAbs):
-    def __init__(self, max_value: Optional[int]= None):
-        self.args = {'max_value': max_value or 10_000 }
+    def __init__(self,
+                 min_value: Optional[int]= None,
+                 max_value: Optional[int]= None):
+        self.min_value = min_value or 0
+        self.max_value = max_value or 10_000
 
     def __iter__(self) -> Iterator:
-        max_value = self.args['max_value']
+        min_value = self.min_value
+        max_value = self.max_value
+        if min_value <= 0 <= max_value:
+            yield 0
         while True:
-            yield _random.randint(0, max_value)
+            yield _random.randint(min_value, max_value)
 
     def __str__(self):
-        args = ", ".join(f"{k}= {v}" for k,v in self.args.items())
-        return f"Int({args})"
+        return f"Int({self.min_value}, {self.max_value})"
 
 
 class PyName(DomainAbs):
