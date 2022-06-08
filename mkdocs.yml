@@ -1,0 +1,44 @@
+site_name: PyPbt
+site_url: https://pypbt.readthedocs.io/
+
+
+docs_dir: documentation
+
+
+nav:
+  - Home: index.md
+  - Tutorial: tutorials/index.md
+  - How-to guides: howtos/index.md
+  - Explanation: explanation/index.md
+  - Api Reference: api.md
+
+    
+theme: readthedocs
+
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - fenced_code
+  - pymdownx.arithmatex:
+      generic: true
+
+      
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_signature_annotations: True
+            show_source: False
+
+watch:
+  - src/pypbt
+        
+  
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
