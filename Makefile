@@ -1,4 +1,4 @@
-.PHONY: build docs
+.PHONY: build docs documentation
 
 build:
 	python3 -m build
@@ -23,7 +23,7 @@ watchdocs:
 	sphinx-autobuild -n -W -b html docs/source/ docs/build/
 
 
-docs:
-	. ./venv-mkdocs/bin/activate; \
+documentation:
+	. ./venv/mkdocs/bin/activate; \
 	mkdocs serve; \
 	deactivate
