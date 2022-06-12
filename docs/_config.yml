@@ -24,7 +24,7 @@ description: >- # this means to ignore newlines until "baseurl:"
   These pages document the design and development process of the proyect PyPBT.
   They are intended for developers, not for users of the library.
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "https://cabrero.github.io/pypbt/" # the base hostname & protocol for your site, e.g. http://example.com
+url: "https://cabrero.github.io/pypbt" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: cabrero
 github_username:  cabrero
 
