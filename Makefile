@@ -9,21 +9,12 @@ upload-testpypy:
 upload-pypy:
 	python3 -m twine upload dist/*
 
-olddocs:
-	sphinx-apidoc \
-	    --force \
-	    --implicit-namespaces \
-	    --module-first \
-	    --separate \
-	    -o docs/reference/ \
-	    src/pypbt/
-	sphinx-build -n -W --keep-going -b html docs/source/ docs/build/
-
-watchdocs:
-	sphinx-autobuild -n -W -b html docs/source/ docs/build/
-
-
+# User doccumentation (readthedocs.io)
 documentation:
 	. ./venv/mkdocs/bin/activate; \
 	mkdocs serve; \
 	deactivate
+
+# Developers documentation (github pages)
+docs:
+	cd docs; bundle exec jekyll serve
