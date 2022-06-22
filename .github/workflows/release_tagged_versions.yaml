@@ -1,0 +1,47 @@
+on:
+  push:
+    tags:
+      - v[0-9]**
+
+name: auto-release-tagged-versions
+
+jobs:
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.10.5
+          cache: 'poetry'
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run tests
+        run: poetry run pytest
+
+      - name: Check documentation build
+        run: poetry run mkdocs build
+
+      - name: Build & Publish package
+        run: poetry publish -n --build --dry-run
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{secrets.PYPI_API_TOKEN }}
+
+      - name: Create Release
+        run: |
+          gh release create ${{ github.ref }} \
+            ./dist/* \
+            --title "Release ${{ github.ref }}" \
+            --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
