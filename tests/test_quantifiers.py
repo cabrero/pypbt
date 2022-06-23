@@ -28,7 +28,7 @@ def pred_false(x):
 def test_finds_counterexample(iterable, pred):
     dom = domain.domain(iterable, exhaustive= True)
     prop = quantifier.forall(x= dom)(pred)
-    assert not all(sample for _, sample in zip(range(100), prop.qc({})))
+    assert not all(result for _, result in zip(range(100), prop.qcproperty(env= {})))
     
 
 """La existencia es cierta
