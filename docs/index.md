@@ -28,6 +28,9 @@ Our motivation was to answer:
   
   - Providing it is, this approach eases writing and reading the properties ?
 
+The main challenge is to design it in such a way that it is easy to
+define and tranform the Domains of the properties' variables.
+
 
 ## What's next if the answers are yes ?
 

@@ -189,6 +189,18 @@ Tree = recursive(lambda Tree: (
 )
 ```
 
+A continuación lo que nos queda es limitar el número de veces que se
+puede aplicar la recurrencia cuando generamos una muestra del
+dominio. De esta forma evitamos entrar en un bucle infinito.
+
+El concepto: en el ejemplo anterior el argumento `Tree` de la función
+anónima nunca es el _dominio Tree_ tal cual lo definimos, i.e. con
+elementos de tamaño indeterminado, sino que cada vez es un dominio
+virtual `Treeₙ` donde los elementos tienen un tamaño igual o menor a
+n.  Decimos que son virtuales porque en la implementación son el mismo
+objeto al que le cambiamos un attributo `n`.
+
+
 ## Things to discuss with yourself
 
 Normalmente los __Dominios__ son conjuntos infinitos de objetos.

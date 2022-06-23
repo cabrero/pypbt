@@ -36,3 +36,29 @@ Se lanza un workflow en github que:
 
 Al crear la release se activa el webhook que lanza la compilación de
 la documentación de usuario en ReadTheDocs.
+
+
+# .gitignore
+
+Teoría: no incluir las excepciones de tu editor de texto porque al resto del mundo no les importa. En lugar de eso,
+incluir esas excepciones en tu configuración de usuario.
+
+Aún así, he incluido '*~' por si acaso.
+
+
+# Type Hinting (Python 3.5+)
+
+Sí.
+
+
+# Coding style
+
+¿ Usar fake y similares ?
+
+
+# Uso del TODO
+
+Algunos todos tienen más sentido como comentarios en el código.
+Haría falta algo para extraerlos.
+
+¿ Los enlazamos con los issues en github ?

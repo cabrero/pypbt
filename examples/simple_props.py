@@ -1,3 +1,6 @@
+from typing import Iterable
+
+
 from pypbt import domain
 from pypbt.quantifier import exists, forall
 
@@ -59,4 +62,20 @@ def prop_even_is_even(x):
 def prop_one_way_or_another(x):
     return type(x) == bool or type(x) == int
 
-    
+
+def evens(input: Iterable[int]) -> Iterable[int]:
+    return [ x for x in input if x % 2 == 0 or x == 101 ] # <- BUG
+
+@forall(l= domain.List(domain.Int()))
+@forall(l1= lambda l: domain.Sublists(evens(l), exhaustive= len(l) < 6))
+def evens_sublists_sum_is_even(l, l1):
+    return sum(l1) % 2 == 0
+
+@forall(l= domain.List(domain.Int()))
+def evens_len(l):
+    return len(evens(l)) <= len(l)
+
+@forall(l= domain.List(domain.Int()))
+def evens_sum_is_even(l):
+    return sum(evens(l)) % 2 == 0
+
