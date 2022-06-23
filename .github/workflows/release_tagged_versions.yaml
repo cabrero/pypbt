@@ -33,7 +33,7 @@ jobs:
         run: poetry run mkdocs build
 
       - name: Build & Publish package
-        run: poetry publish -n --build --dry-run
+        run: poetry publish -n --build
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
 
