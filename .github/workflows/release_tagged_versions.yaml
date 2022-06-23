@@ -13,15 +13,18 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
       - name: Install poetry
         run: pipx install poetry
 
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'poetry'
+
       - name: Install dependencies
-        run: poetry install
+        run: |
+          poetry env use '3.10'
+          poetry install
 
       - name: Run tests
         run: poetry run pytest tests
