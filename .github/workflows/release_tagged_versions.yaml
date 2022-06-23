@@ -49,6 +49,6 @@ jobs:
             --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ setps.get_version.outputs.VERSION }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
 
 
