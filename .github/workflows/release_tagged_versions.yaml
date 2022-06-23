@@ -37,13 +37,18 @@ jobs:
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{secrets.PYPI_API_TOKEN }}
 
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+        
       - name: Create Release
         run: |
-          gh release create ${{ github.ref }} \
+          gh release create ${{ VERSION }} \
             ./dist/* \
-            --title "Release ${{ github.ref }}" \
+            --title "Release ${{ VERSION }}" \
             --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ setps.get_version.outputs.VERSION }}
 
 
