@@ -35,7 +35,7 @@ jobs:
       - name: Build & Publish package
         run: poetry publish -n --build --dry-run
         env:
-          POETRY_PYPI_TOKEN_PYPI: ${{secrets.PYPI_API_TOKEN }}
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
 
       - name: Get the version
         id: get_version
@@ -43,9 +43,9 @@ jobs:
         
       - name: Create Release
         run: |
-          gh release create ${{ VERSION }} \
+          gh release create $VERSION \
             ./dist/* \
-            --title "Release ${{ VERSION }}" \
+            --title "Release $VERSION" \
             --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
