@@ -194,9 +194,7 @@ class ForAll(QCProperty):
     def __str__(self):
         return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
                 f"{textwrap.indent(str(self.qcproperty), '  ')}")
-        
 
-        
         
 class Exists(QCProperty):
     def __init__(self,
@@ -238,13 +236,26 @@ class Exists(QCProperty):
     def __str__(self):
         return f"Exists {self.quantifed_var}: {self.domain_obj} / {self.qcproperty}"
         
-
-
     
 #---------------------------------------------------------------------------
 # decoradores
 #---------------------------------------------------------------------------
 def forall(n_samples: int= 100, **binds):
+    """Decorates a predicate funcion or another decorator with a forall quantifier.
+
+    Parameters
+    ----------
+    n_samples : int
+        The number of samples to check.
+    **binds
+        The quantified variables. Actually the number of quantified
+        variables is limited to 1.
+
+    Returns
+    -------
+    ForAll
+        An object implementing the property as a callable.
+    """
     if len(binds) != 1:
         # TODO: permitir esto como "azúcar sintáctico" ?
         #       Es decir que
@@ -268,6 +279,23 @@ def forall(n_samples: int= 100, **binds):
 
 
 def exists(**binds):
+    """Decorates a predicate funcion or another decorator with an existencial quantifier.
+
+    Parameters
+    ----------
+    **binds
+        The quantified variables. Actually the number of quantified
+        variables is limited to 1.
+
+    Returns
+    -------
+    Exists
+        An object implementing the property as a callable.
+
+    !!! warning
+        Every variable must be quantified over an exhaustible domain.
+
+    """
     if len(binds) != 1:
         # TODO: permitir esto como "azúcar sintáctico" ?
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
