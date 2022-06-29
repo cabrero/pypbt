@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import inspect
+from itertools import islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
 
-from .domain import domain_expr, Domain, DomainCoercible, Env, take
+from .domain import domain_expr, Domain, DomainCoercible, Env
 
 
 # Property = ForAll Property
@@ -164,7 +165,7 @@ class ForAll(QCProperty):
         if domain_obj.is_exhaustible:
             domain_samples = domain_obj.exhaustible
         else:
-            domain_samples = take(self.n_samples, domain_obj)
+            domain_samples = islice(domain_obj, self.n_samples)
             
         for sample in domain_samples:
             yield from qcproperty(env= {**env, quantifed_var: sample})

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import Counter
-import itertools
+from itertools import islice
 from typing import Callable
 
 
@@ -77,7 +77,7 @@ def test_samples_are_random_enough(domain_factory: Callable, counter_factory: Ca
     dom = domain_factory()
     print(dom)
     for n_samples in (100, 1000):
-        samples = domain.take(n_samples, dom)
+        samples = islice(dom, n_samples)
         counter = counter_factory(samples)
         repeated_samples = [sample for sample, count in counter.items() if count > 1]
         assert len(repeated_samples) / n_samples < (5/100)
@@ -107,14 +107,14 @@ def test_generation_is_reproducible(domain_factory: Callable):
     domain.set_seed(seed)
     dom = domain_factory()
     print(dom, seed)
-    # `domain.take` devuelve un generador, o sea un objeto perezoso.
+    # `islice` devuelve un generador, o sea un objeto perezoso.
     # hay que realizarlo ("desperezarlo") antes de cambiar la semilla.
     # Cosas que pasan con los efectos colaterales.¯\_(ツ)_/¯
-    first_sequence = tuple(domain.take(DEFAULT_N_SAMPLES, dom))
+    first_sequence = tuple(islice(dom, DEFAULT_N_SAMPLES))
     domain.set_seed(seed)
     dom = domain_factory()
     print(dom, seed)
-    second_sequence = tuple(domain.take(DEFAULT_N_SAMPLES, dom))
+    second_sequence = tuple(islice(dom, DEFAULT_N_SAMPLES))
     assert first_sequence == second_sequence
 
 
@@ -133,7 +133,7 @@ def test_union_is_fair():
     dom = (domain.Int() |
            domain.PyName() |
            domain.List(domain.Tuple(domain.Int(), domain.Int())))
-    samples = domain.take(DEFAULT_N_SAMPLES, dom)
+    samples = islice(dom, DEFAULT_N_SAMPLES)
     counter = Counter(type(sample) for sample in samples)
     n_int_samples = counter[int]
     n_pyname_samples = counter[str]
@@ -152,5 +152,5 @@ de un dominio.
 """
 def test_samples_limit():
     dom = domain.Int().that(samples_limit= 10)
-    x = itertools.islice(dom, 100)
+    x = islice(dom, 100)
     assert len(list(x)) == 10

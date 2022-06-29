@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar, replace
 import inspect
-import itertools
+from itertools import islice
 import random
 import string
 from typing import Any, Callable, Generator, Generic, Iterable, Iterator, Optional, Protocol, Union, Sized, TypeVar
@@ -25,13 +25,6 @@ def set_seed(new_seed):
     _random.seed(new_seed)
 
     
-def take(n: int, iterable: Iterable) -> Iterator:
-    # No sé porqué está función no está en la stdlib
-    it = iter(iterable)
-    for _ in range(n):
-        yield next(it)
-
-
 #---------------------------------------------------------------------------
 # Tipos
 #---------------------------------------------------------------------------
@@ -203,7 +196,7 @@ class DomainLimit(Domain):
         self.samples_limit = samples_limit
 
     def __iter__(self) -> Iterator[T]:
-        return itertools.islice(self.delegate, self.samples_limit)
+        return islice(self.delegate, self.samples_limit)
 
 
     
@@ -374,7 +367,7 @@ class List(Domain):
             min_len = 1
         while True:
             n = _random.randint(min_len, max_len)
-            yield list(take(n, self.domain))
+            yield list(islice(self.domain, n))
 
     
 class Tuple(Domain):
