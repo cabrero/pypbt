@@ -18,6 +18,7 @@ python:
    install:
      - method: pip
        path: .
+     - requirements: rtd-requirements.txt
 
 build:
   image: testing
