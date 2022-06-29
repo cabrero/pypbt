@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pypbt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Library of functions to write Property Based Tests in python"
 authors = ["David Cabrero Souto <david.cabrero@madsgroup.org>"]
 license = "GPL-2.0-only"
