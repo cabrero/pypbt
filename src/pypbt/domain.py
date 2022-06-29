@@ -379,10 +379,12 @@ class Tuple(Domain):
         while True:
             yield tuple(next(it) for it in iterators)
 
-    def exhaustible_iter(self, env: Env) -> Iterator:
+    def exhaustible_iter(self) -> Iterator:
         if any(not domain.is_exhaustible for domain in self.domains):
             raise TypeError(f"not every element is exhaustible in {self}")
-        iterators = [domain.exhaustible_iter(env) for domain in self.domains]
+        iterators = [domain.exhaustible for domain in self.domains]
+        # TODO: si un dominio es más grande que otro, ¿ nos vale este comportamiento
+        #  o queremos implementar otros ?
         return zip(*iterators)
 
     def __str__(self):
@@ -497,9 +499,40 @@ class DomainUnion(Domain):
         return " | ".join(map(str, self.domains))
 
 
+class DomainPyObject(Domain):
+    def __init__(self,
+                 factory: Callable,
+                 *domain_args: tuple(DomainCoercible,...),
+                 **domain_kwargs: dict[str, DomainCoercible]):
+        self.factory = factory
+        self.domain_args = [domain_expr(d) for d in domain_args]
+        self.domain_kwargs = { key: domain_expr(d)
+                               for key, d in domain_kwargs.items() }
 
+    def __iter__(self) -> Iterator:
+        factory = self.factory
+        args_iterators = [iter(domain) for domain in self.domain_args]
+        kwargs_iterators = { key: iter(domain)
+                             for key, domain in self.domain_kwargs.items() }
+        while True:
+            yield factory(*(next(it) for it in args_iterators),
+                          **{ key: next(it)
+                              for key, it in kwargs_iterators.items() })
 
-            
+    def exhaustible_iter(self) -> Iterator:
+        if any(not domain.is_exhaustible for domain in self.domain_args):
+            raise TypeError(f"not every element is exhaustible in {self}")
+        factory = self.factory
+        args_iterators = [domain.exhaustible for domain in self.domain_args]
+        kwargs_iterators = { key: domain.exhaustible
+                             for key, domain in self.domain_kwargs.items() }
 
-
-
+        # TODO: si un dominio es más grande que otro, ¿ nos vale este comportamiento
+        #  o queremos implementar otros ?
+        while True:
+            try:
+                yield factory(*(next(it) for it in args_iterators),
+                              **{ key: next(it)
+                                  for key, it in kwargs_iterators.items() })
+            except StopIteration:
+                break
