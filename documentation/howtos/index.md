@@ -231,6 +231,46 @@ Json = domain.recursive(lambda Json: (
 ```
 
 
-# Define a domain from scratch
+# Define a new domain
 
-TBD
+Let's say we want to define the domain: `Fraction(Int(), Int())`. We may:
+
+1. Use operators on iterables:
+  
+		:::python
+		DomainFraction = (Fraction(numerator, denominator)
+						  for numerator, denominator in zip(domain.Int(), domain.Int(min_value= 1)))
+
+	
+2. Use the domain of generic python objects
+  
+		:::python
+		DomainFraction = domain.DomainPyObject(Fraction, domain.Int(), domain.Int(min_value= 1))
+		
+    or
+   
+		:::python
+        DomainFraction = domain.DomainPyObject(Fraction,
+		                                       numerator= domain.Int(),
+											   denominator= domain.Int(min_value= 1))
+
+
+1. Create a `Domain` class from scratch
+  
+	    :::python
+	    class DomainFraction(Domain):
+		    def __iter__(self) -> Iterator[Fraction]:
+			    numerator = iter(domain.Int())
+			    denominator = iter(domain.Int(min_value= 1))
+			    while True:
+				    yield Fraction(next(numerator), next(denominator))
+  
+    or
+   
+        :::python
+		class DomainFraction(Domain):
+		    def __iter__(self) -> Iterator[Fraction]:
+			    for numerator, denominator in zip(domain.Int(), domain.Int(min_value= 1))
+				    yield Fraction(numerator, denominator)
+	
+

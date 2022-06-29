@@ -80,3 +80,10 @@ def evens_len(l):
 def evens_sum_is_even(l):
     return sum(evens(l)) % 2 == 0
 
+
+from fractions import Fraction
+
+@forall(fraction= domain.DomainPyObject(Fraction, numerator= domain.Int(), denominator= domain.Int(min_value= 1)))
+def prop_broken(fraction):
+    print(fraction)
+    return fraction.denominator != 0
