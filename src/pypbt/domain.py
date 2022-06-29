@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar, replace
+import inspect
 import itertools
 import random
 import string
-from typing import Callable, Generic, Iterable, Iterator, Optional, Protocol, Union, TypeVar
+from typing import Any, Callable, Generator, Generic, Iterable, Iterator, Optional, Protocol, Union, Sized, TypeVar
 from typing import runtime_checkable
 
 # TODO: ¿ queremos/podemos hacer que la semilla no sea una variable global del módulo ?
@@ -35,10 +36,9 @@ def take(n: int, iterable: Iterable) -> Iterator:
 # Tipos
 #---------------------------------------------------------------------------
 
-# Soporte para azúcar sintático. En los cuantificadores se puede usar
-# un objeto iterable en lugar de un objeto Domain. La librería se
-# encarga de quitar el azúcar.
-DomainCoercible = Union['Domain', 'RecSubDomain', Iterable]
+# Actually, cualquier objeto se puede convertir en un dominio.
+# Ver DomainFromIterable o DomainSingletion
+DomainCoercible = Any
 
 
 # Entorno. Guarda las ligaduras de variables.
@@ -49,23 +49,40 @@ def is_domain(arg: Any) -> bool:
     return isinstance(arg, Domain)
 
 
-def desugar_domain(arg: DomainCoercible,
-                   is_exhaustible: Optional[bool]= None) -> Domain:
+def domain_expr(arg: DomainCoercible,
+                is_exhaustible: Optional[bool]= None) -> Domain:
+    """Desugar domain expressions
+
+    Converts any expression declaring a domain into a Domain object.
+    The options are:
+
+    - If arg is already a Domain object, returns it. Parameters are
+      not allowed.
+
+    - If arg is any python iterable, returns a Domain object whose
+      elements are the items in the iterable. The programmer may mark
+      the domain as exhaustible when neccessary.
+
+    - If arg is a generator function, equivalent to iterable, taking
+      the elements from the generator returned by the function.
+
+    - If arg is any other python object, returns a Domain containing
+      only one element: arg.
+
+    """
     if is_domain(arg):
         if is_exhaustible is not None:
             raise TypeError("cannot change the attribute is_exhaustible of a domain")
         return arg
     elif isinstance(arg, Iterable):
-        return ExhaustibleIterableAsDomain(arg) if is_exhaustible else IterableAsDomain(arg)
+        return DomainFromIterable(arg, is_exhaustible= is_exhaustible or False)
+    elif inspect.isgeneratorfunction(arg):
+        return DomainFromGeneratorFun(arg,  is_exhaustible= is_exhaustible or False)
     else:
-        # TODO: Otras formas de declarar un dominio, p.e.
-        #    - tipos básicos: int, str, ...
-        #    - función generadora
-        raise TypeError(f"Cannot use {arg} as a domain here")
-
-
-def domain(d: Any, is_exhaustible: Optional[bool]= None) -> Domain:
-    return desugar_domain(d, is_exhaustible= is_exhaustible)
+        return DomainSingleton(arg)
+    # TODO: Otras formas de declarar un dominio, p.e.
+    #    - tipos básicos: int, str, ...
+    #    - función generadora
 
             
 RecStepFun = Callable[['RecDomainStep'], 'Domain']
@@ -208,42 +225,71 @@ class RecDomain(Domain):
 
     def __str__(self) -> str:
         return f"RecDomain_{self.sub_i}({id(self)})"
-    
 
-class IterableAsDomain(Domain):
-    def __init__(self, iterable: Iterable):
-        self.iterable = iterable
+
+class DomainSingleton(Domain):
+    is_exhaustible = True
+    
+    def __init__(self, element: Any):
+        self.element = element
 
     def __iter__(self) -> Iterator:
-        return iter(self.iterable)
-
-    def __str__(self) -> str:
-        return f"Domain({self.iterable})"
-
-    
-class ExhaustibleIterableAsDomain(Domain):
-    is_exhaustible: bool = True
-
-    def __init__(self, iterable: Iterable):
-        self.iterable = tuple(iterable)
-
-    def as_exhaustible(self, exhaustible: bool) -> Domain:
-        return self if exhaustible else IterableAsDomain(self.iterable)
-
-    def __iter__(self) -> Iterator:
-        # Importante: barajar los items por si acaso el número de muestras que
-        # se cogen del dominio es menor que el tamaño del iterable, para evitar
-        # devolver siempre los $n$ primeros.
-        samples = _random.sample(self.iterable, len(self.iterable))
+        element = self.element
         while True:
-            yield from samples
-    
+            yield element
+
+    def exhaustible_iter(self) -> Iterator:
+        yield self.element
+
+
+class DomainFromIterable(Domain):
+    def __init__(self, iterable: Iterable, is_exhaustible: bool):
+        self.iterable = iterable
+        self.is_exhaustible = is_exhaustible
+
+    def __iter__(self) -> Iterator:
+        if not self.is_exhaustible:
+            yield from self.iterable
+        else:
+            # Importante: barajar los items por si acaso el número de muestras que
+            # se cogen del dominio es menor que el tamaño del iterable, para evitar
+            # devolver siempre los $n$ primeros.
+            samples = self.iterable
+            if not isinstance(samples, Sequence):
+                # Por ejemplo: un generator object es un Iterable
+                # Pero la función random.sample sólo admite Sequence como
+                # parámetro (ver doc.)
+                samples = tuple(samples)
+            samples = _random.sample(samples, len(samples))
+            while True:
+                yield from samples
+
     def exhaustible_iter(self) -> Iterator:
         return iter(self.iterable)
-    
-    def __str__(self):
-        return f"ExhaustibleDomain({self.iterable})"
 
+
+class DomainFromGeneratorFun(Domain):
+    def __init__(self, fun: Callable, is_exhaustible: bool):
+        self.fun = fun
+        self.is_exhaustible = is_exhaustible
+
+    def __iter__(self) -> Iterator:
+        generator = self.fun()
+        if not self.is_exhaustible:
+            yield from generator
+        else:
+            # Importante: barajar los items por si acaso el número de muestras que
+            # se cogen del dominio es menor que el tamaño del iterable, para evitar
+            # devolver siempre los $n$ primeros.
+            samples = tuple(generator)
+            samples = _random.sample(samples, len(samples))
+            while True:
+                yield from samples
+
+    def exhaustible_iter(self) -> Iterator:
+        return self.fun()
+
+    
 
 class Sublists(Domain):
     def __init__(self, l: list, is_exhaustible: bool= False):
@@ -318,7 +364,7 @@ class List(Domain):
     domain: Domain = field(init= False)
 
     def __post_init__(self, domain_obj: DomainCoercible):
-        super().__setattr__('domain', desugar_domain(domain_obj))
+        super().__setattr__('domain', domain_expr(domain_obj))
         
     def __iter__(self) -> Iterator[list]:
         min_len = self.min_len
@@ -333,7 +379,7 @@ class List(Domain):
     
 class Tuple(Domain):
     def __init__(self, *domain_objs: tuple(DomainCoercible,...)):
-        self.domains = [desugar_domain(d) for d in domain_objs]
+        self.domains = [domain_expr(d) for d in domain_objs]
 
     def __iter__(self) -> Iterator:
         iterators = [iter(domain) for domain in self.domains]
@@ -353,8 +399,8 @@ class Tuple(Domain):
 
 class Dict(Domain):
     def __init__(self, key_domain: DomainCoercible, value_domain: DomainCoercible, min_len: int= 0, max_len: int= 20):
-        self.key_domain = desugar_domain(key_domain)
-        self.value_domain = desugar_domain(value_domain)
+        self.key_domain = domain_expr(key_domain)
+        self.value_domain = domain_expr(value_domain)
         self.min_len = min_len
         self.max_len = max_len
 
@@ -423,11 +469,11 @@ class DomainUnion(Domain):
         if isinstance(a, DomainUnion):
             a = a.domains
         else:
-            a = [desugar_domain(a)]
+            a = [domain_expr(a)]
         if isinstance(b, DomainUnion):
             b = b.domains
         else:
-            b = [desugar_domain(b)]
+            b = [domain_expr(b)]
         self.domains = [*a, *b]
         self.is_exhaustible = all(d.is_exhaustible for d in self.domains)
 

@@ -4,7 +4,7 @@ import inspect
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
 
-from .domain import desugar_domain, Domain, DomainCoercible, Env, take
+from .domain import domain_expr, Domain, DomainCoercible, Env, take
 
 
 # Property = ForAll Property
@@ -72,27 +72,8 @@ def bind_and_eval(expr: Union[DomainExprWithFreeVars, Domain],
     # A la hora de construir kwargs ignoramos la variables que no
     # están en env para que el error salte al llamar a la función
     kwargs = { k: env[k] for k in expr.unbound_vars if k in env}
-    return desugar_domain(expr.fun(**kwargs))
+    return domain_expr(expr.fun(**kwargs))
     
-
-# class DomainExpr:
-#     def __init__(self, expr: DomainLambda):
-#         self.expr = expr
-#         signature = inspect.signature(expr)
-#         self.unbound_vars = list(signature.parameters.keys())
-#         if len(self.unbound_vars) == 0:
-#             raise TypeError(f"no free variables")
-
-#     def bind(self, env: Env) -> Domain:
-#         # TODO: ¿ bind es el nombre adecuado ?
-#         # A la hora de construir kwargs ignoramos la variables que no
-#         # están en env para que el error salte al llamar a la función
-#         kwargs = { k: env[k] for k in self.unbound_vars if k in env}
-#         return self.expr(**kwargs)
-
-#     def __str__(self) -> str:
-#         return f"{self.unbound_vars} => {self.expr}"
-
 
 #---------------------------------------------------------------------------
 # Tipos.
@@ -103,14 +84,10 @@ QArg = Union['DomainLambda', DomainCoercible]
 
 
 def _preprocess_domain(arg: QArg) -> Domain:
-    try:
-        return desugar_domain(arg)
-    except TypeError:
-        pass
-    if callable(arg):
+    if getattr(arg, '__name__', None) == '<lambda>':
         return domain_expr_with_free_vars(arg)
     else:
-        raise TypeError(f"Expected a domain, got {arg}")
+        return domain_expr(arg)
 
 
 class Left:
