@@ -49,7 +49,7 @@ VarName = str
 
 DomainLambda = Callable[[...], DomainCoercible]
 
-class DomainExpr(NamedTuple):
+class DomainExprWithFreeVars(NamedTuple):
     fun: DomainLambda
     unbound_vars: list[str]
 
@@ -57,16 +57,17 @@ class DomainExpr(NamedTuple):
         return f"{self.unbound_vars} => {self.fun}"
 
 
-def domain_expr(fun: DomainLambda) -> DomainExpr:
+def domain_expr_with_free_vars(fun: DomainLambda) -> DomainExprWithFreeVars:
     signature = inspect.signature(fun)
     unbound_vars = list(signature.parameters.keys())
     if len(unbound_vars) == 0:
         raise TypeError(f"no free variables")
-    return DomainExpr(fun, unbound_vars)
+    return DomainExprWithFreeVars(fun, unbound_vars)
     
 
-def bind_and_eval(expr: Union[DomainExpr, Domain], env: Env) -> Domain:
-    if not isinstance(expr, DomainExpr):
+def bind_and_eval(expr: Union[DomainExprWithFreeVars, Domain],
+                  env: Env) -> Domain:
+    if not isinstance(expr, DomainExprWithFreeVars):
         return expr
     # A la hora de construir kwargs ignoramos la variables que no
     # están en env para que el error salte al llamar a la función
@@ -107,7 +108,7 @@ def _preprocess_domain(arg: QArg) -> Domain:
     except TypeError:
         pass
     if callable(arg):
-        return domain_expr(arg)
+        return domain_expr_with_free_vars(arg)
     else:
         raise TypeError(f"Expected a domain, got {arg}")
 
@@ -183,8 +184,8 @@ class ForAll(QCProperty):
         qcproperty = self.qcproperty
 
         # Si el dominio está marcado como finito recorremos el dominio entero
-        if domain_obj.is_exhaustive:
-            domain_samples = domain_obj.exhaustive_iterator()
+        if domain_obj.is_exhaustible:
+            domain_samples = domain_obj.exhaustible
         else:
             domain_samples = take(self.n_samples, domain_obj)
             
@@ -221,11 +222,11 @@ class Exists(QCProperty):
         domain_obj = bind_and_eval(self.domain_obj, env)
         qcproperty = self.qcproperty
 
-        if not domain_obj.is_exhaustive:
+        if not domain_obj.is_exhaustible:
             raise TypeError(f"It's not possible to check existence "
                             f"in non exhaustive domain: {domain_obj}")
         
-        for sample in domain_obj.exhaustive_iterator():
+        for sample in domain_obj.exhaustible:
             if any(qcproperty(env= {**env, quantifed_var: sample})):
                 yield True
                 return

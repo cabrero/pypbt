@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import Counter
+import itertools
 from typing import Callable
 
 
@@ -142,3 +143,14 @@ def test_union_is_fair():
     assert n_pyname_samples > 1
     assert n_list_samples > 1
 
+    
+"""El argumento `samples_limit`
+
+El argumento realmente limita el número de samples que podemos obtener
+de un dominio.
+
+"""
+def test_samples_limit():
+    dom = domain.Int().that(samples_limit= 10)
+    x = itertools.islice(dom, 100)
+    assert len(list(x)) == 10
