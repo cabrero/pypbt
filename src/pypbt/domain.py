@@ -1,203 +1,10 @@
-"""markdown
-
-# Domain
-
-Normalmente los __Dominios__ son conjuntos infinitos de objetos.
-Incluso cuando no lo son, su cardinalidad puede ser demasiado grande
-como para poder comprobar una propiedad con todos los objetos del
-dominio. Por eso en PBT sólo comprobamos una propiedad contra un
-subconjunto elegido al azar.
-
-Aún así, en python podemos representar un conjunto infinito de
-elementos de varias formas. De entre la posibilidades existentes
-elegimos una _función generadora_, _generator_. Por ejemplo:
-
-```
-DomainGenerator :: None -> Iterator[DomainObject]
-```
-
-Como vemos, en python estos generadores son iterables, pero no nos
-interesa iterar sobre los objetos del dominio siempre con la misma
-secuencia. Para el PBT nos interesa que el generador nos devuelva cada
-vez un iterador distinto que recorre el dominio en un orden al azar.
-
-Es muy importante dejar claro que en realidad el orden no puede ser
-realmente aleatorio, sino _pseudoaleatorio_ porque estamos haciendo
-pruebas y, cuando encontramos un error, tenemos que ser capaces de
-repetir la misma secuencia _pseudoaleatoria_ de objetos.
-
-Para que la falta de transparencia referencial no nos cree sarpullido,
-podemos pensar en la función generadora como:
-
-```
-DomainGenerator :: Seed -> Iterator[DomainObject]
-```
-
-De esta forma para la misma semilla devuelve el mismo iterador que
-realiza el mismo recorrido.
-
-
-Siguiendo con la implementación, aunque el dominio esté representado
-como una función generadora, la vamos a envolver en un objeto python
-.`Domain`, donde incluiremos:
-
-  - Parámetros del dominio. P.e. max_size, min_size, ...
-
-  - Pretty print
-
-  - Operadores sobre dominios, p.e. la unión `|`
-
-  - Semilla
-
-  - ...
-
-
-## Estrategias de generación
-
-Conocemos tres estrategias principales para generar el recorrido
-pseudoaleatorio del domino:
-
-
-- Naïf. A partir de una semilla, generar una secuencia de números
-  pseudoaleatorios y usar estos números para seleccionar los elementos
-  del conjunto.
-
-- TODO: A mayores del caso anterior, usar heurísticas para incluir
-  elementos que se sabe que son "problemáticos" en las pruebas, por
-  ejemplo los zeros.
-
-- TODO: Sized generation. Los elementos se eligen en orden creciente
-  de tamaño y complejidad.
-
-
-
-# DomainExpr
-
-Además de los objetos de tipo `Domain` con sus correspondiente
-funciones generadoras, vamos a tener en cuentra otras expresiones que
-nos permiten representar un dominio. Siguiendo con la filosofía de
-los dominios, estas expresiones deben evaluarse a un iterable.
-
-Las expresiones `DomainExpr` que vamos a tener en cuenta son:
-
-- Un tipo de dato que sea iterable. Su uso principal es
-  representar dominios finitos. P.e. una lista.
-
-- Otro tipo de iterables que podamos crear con el propio lenguaje o
-  algún módulo. Son muy útiles para aplicar transformaciones sobre un
-  dominio. P.e. `filter`, `map`, ... o las _generator expressions_
-  `(x*2 for x in ...) `
-
-Ejemplos:
-
-```python
-@forall(x= (a for a in domain.Int() if a < 20))
-
-@forall(x= filter(lambda a: a > 42, domain.Int())
-```
-
-
-# UnboundedDomain
-
-Tomemos como ejemplo la propiedad:
-
-```
-forall x in Integer, y in Integer-[-inf,x] ...
-```
-
-Que traducida a código podría ser:
-
-```python
-@forall(x= Interger())
-@forall(y= Integer(lower= x))
-```
-
-Pero en el segundo `forall` la `x` está fuera del _scope_ del primero
-y, por tanto, está _libre_, a.k.a sin ligar. Lo natural es que durante
-la ejecución de las pruebas, la librería le asigne cada uno de los
-valores que va generando para el dominio del primer cuantificador.
-
-Pero para que la librería pueda hacer esa asignación, necesitamos
-alguna construcción del lenguaje que nos lo permita. Una forma natural
-de hacerlo es envolver la expresión de dominio en una función cuyos
-parámetros sean las variable libres de la expresión de dominio:
-
-```python
-@forall(x= Interger())
-@forall(y= lambda x: Integer(lower= x))
-```
-
-Igual que hacemos con las funciones generadoras, estás funciones "de
-binding" también las envolvermos en un objeto. Este objeto tendrá una
-operación para ligar las variables libres y devolver un objeto
-`Domain`.
-
-
-# Dominios 'suficientemente' finitos
-
-Algunos dominios son finitos y su cardinalidad es suficientemente
-pequeña como para poder comprobar una propiedad para todos los objetos
-del dominio. En estos casos podríamos incluso usar un _cuantificador
-existencial_.
-
-Comprobar si un dominio es 'suficientemente' finito es demasiado
-complejo. Es reponsabilidad del cliente marcar los dominios como tales:
-
-```python
-@exists(y= domain.exhaustive_domain(range(1,9)))
-```
-
-# Dominios "recursivos"
-
-En la definición de los objetos de un dominio puede aparecer objetos
-del propio dominio. De ahí lo de _recursivo_. El ejemplo mítico son
-los árboles.
-
-> _N.B._ Para que la recursión se pueda resolver tiene que haber al
-> menos un caso base a mayores de un paso recursivo. Esta condición
-> sólo se da en dominios creados a partir de operadores como el `|`.
-
-Como primera aproximación pensemos en un dominio cuyos objetos son
-árboles binarios de cualquier tamaño y cuyos nodos hoja son valores
-booleanos:
-
-TODO: formulación "más matematica"
-
-```python
-Tree = domain.Boolean() | domain.Tuple(Tree(), Tree())
-```
-
-El código anterior no se puede usar directamente porque:
-
-- En la parte derecha la variable `Tree` todavía no está definida.
-
-  Podríamos arreglarlo diferiendo la evaluación de `Tree()`
-  envolviendola en una lambda: `lambda: Tree()`, pero nos complicaría
-  la implementación del runtime y la solución del siguiente problema.
-
-- Si `Tree` estuviese definida, entraríamos en un bucle infinito.
-
-Para solucionar estos problemas hay que marcar explicitamente las
-definiciones recursivas. El código resultante es un poco _contrived_,
-pero no parece fácil hacer algo más natural sin analizar el código
-fuente
-
-```python
-Tree = recursive(lambda Tree: domain.Boolean() | domain.Tuple(Tree(), Tree()))
-Tree = recursive(lambda Tree: (
-    domain.Boolean() |
-    domain.Tuple(Tree(), Tree()))
-)
-```
-
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar, replace
+import itertools
 import random
 import string
-from typing import Callable, Iterable, Iterator, Optional, Protocol, Union
+from typing import Callable, Generic, Iterable, Iterator, Optional, Protocol, Union, TypeVar
 from typing import runtime_checkable
 
 # TODO: ¿ queremos/podemos hacer que la semilla no sea una variable global del módulo ?
@@ -228,15 +35,6 @@ def take(n: int, iterable: Iterable) -> Iterator:
 # Tipos
 #---------------------------------------------------------------------------
 
-# Interface de los objetos que representan un dominio.
-@runtime_checkable
-class Domain(Protocol):
-    is_exhaustive: bool
-    def as_exhaustive(self, exhaustive: bool) -> Domain: ...
-    def __iter__(self) -> Iterator: ...
-    def __or__(self, other: 'DomainCoercible') -> Domain: ...
-    def __ror__(self, other: 'DomainCoercible') -> Domain: ...
-
 # Soporte para azúcar sintático. En los cuantificadores se puede usar
 # un objeto iterable en lugar de un objeto Domain. La librería se
 # encarga de quitar el azúcar.
@@ -251,11 +49,14 @@ def is_domain(arg: Any) -> bool:
     return isinstance(arg, Domain)
 
 
-def desugar_domain(arg: DomainCoercible, exhaustive: Optional[bool]= None) -> Domain:
+def desugar_domain(arg: DomainCoercible,
+                   is_exhaustible: Optional[bool]= None) -> Domain:
     if is_domain(arg):
-        return arg if exhaustive is None else arg.as_exhaustive(exhaustive)
+        if is_exhaustible is not None:
+            raise TypeError("cannot change the attribute is_exhaustible of a domain")
+        return arg
     elif isinstance(arg, Iterable):
-        return ExhaustiveIterableAsDomain(arg) if exhaustive else IterableAsDomain(arg)
+        return ExhaustibleIterableAsDomain(arg) if is_exhaustible else IterableAsDomain(arg)
     else:
         # TODO: Otras formas de declarar un dominio, p.e.
         #    - tipos básicos: int, str, ...
@@ -263,8 +64,8 @@ def desugar_domain(arg: DomainCoercible, exhaustive: Optional[bool]= None) -> Do
         raise TypeError(f"Cannot use {arg} as a domain here")
 
 
-def domain(d: Any, exhaustive: bool= False) -> Domain:
-    return desugar_domain(d, exhaustive)
+def domain(d: Any, is_exhaustible: Optional[bool]= None) -> Domain:
+    return desugar_domain(d, is_exhaustible= is_exhaustible)
 
             
 RecStepFun = Callable[['RecDomainStep'], 'Domain']
@@ -295,31 +96,102 @@ samples:
   de tamaño y complejidad.  
 """
 
-class DomainAbs(Domain):
-    is_exhaustive : bool = False
+T = TypeVar('T')
+class Domain(Generic[T]):
+    """Domain abstract class
 
-    def as_exhaustive(self, exhaustive: bool) -> Domain:
-        if exhaustive:
-            raise TypeError(f"domain cannot be marked as exhaustive: {self}")
-        return self
+    This is the base class for every `Domain`. It includes some
+    operations like _union_.
+
+    It also includes the method `that` to decorate a domain with extra
+    funcionality. For example: limiting the number of samples that it
+    will generate.
+
+    By default, domains are non exhaustibles. The attribute
+    `is_exhaustible = False`.  When a domain is or may be exhaustible,
+    the corresponding class has to explicitly change the attribute
+    `is_exhaustible` and, if neccessary, add a parameter to the
+    `__init__` function. And, of course, implement the exhaustible
+    iterator `exhaustible_iter`.
+
+    """
+    is_exhaustible: bool = False
     
-    def exhaustive_iterator(self) -> Iterator:
-        raise TypeError(f"domain is not exhaustive: {self}")
-    
-    def __iter__(self) -> Iterator:
+    @property
+    def exhaustible(self) -> Iterator[T]:
+        """Returns an iterator that can be exhausted.
+
+        """
+        if not self.is_exhaustible:
+            raise TypeError(f"cannot exhaust domain {self}")
+        else:
+            return self.exhaustible_iter()
+            
+    def __iter__(self) -> Iterator[T]:
+        """Returns the cannonical iterator for a domain.
+
+        This is the magic method of any python iterable. The returned
+        iterator is the pbt cannonical one. This iterator will pick
+        and yield random samples from the domain.
+
+        """
+        raise NotImplementedError()
+
+    def exhaustible_iter(self) -> Iterator[T]:
+        """Returns the non-cannonical, exhaustible iterator for a domain.
+
+        The returned iterator is not the pbt cannonical one. Instead
+        of picking random samples, this iterator will pick and yield
+        all the elements of the domain.
+
+        NOTE that most domains can not be exhausted because the number
+        of elements is too big, generating them is too costly, or,
+        most of the cases, the number of elements is infinite.
+
+        WARNING do not use this method directly, instead use the
+        property `exhaustible`.
+
+        """
         raise NotImplementedError()
     
-    def __str__(self) -> str:
-        return f"Domain()"
-
     def __or__(self, other: DomainCoercible) -> Domain:
         return DomainUnion(self, other)
     
     def __ror__(self, other: DomainCoercible) -> Domain:
         return DomainUnion(other, self)
 
+    def that(self, samples_limit: int) -> Domain:
+        """Decorate this domain
 
-class RecDomain(DomainAbs):
+        Returns a decorator of this domain. The decorator will change
+        the behaviour of the domain based on the given parameters.
+
+        Parameters
+        ----------
+        samples_limit : int
+            max number of samples the domain generates
+
+        Returns
+        -------
+        Domain
+            the decorated domain
+        """
+        return DomainLimit(self, samples_limit)
+
+
+# Decorator
+class DomainLimit(Domain):
+    def __init__(self, delegate: Domain, samples_limit: int):
+        self.delegate = delegate
+        self.samples_limit = samples_limit
+
+    def __iter__(self) -> Iterator[T]:
+        return itertools.islice(self.delegate, self.samples_limit)
+
+
+    
+
+class RecDomain(Domain):
     def __init__(self, fun: RecStepFun, sub_i: int= 0, max_depth:int= 6):
         self.fun = fun
         self.sub_i = sub_i
@@ -338,7 +210,7 @@ class RecDomain(DomainAbs):
         return f"RecDomain_{self.sub_i}({id(self)})"
     
 
-class IterableAsDomain(DomainAbs):
+class IterableAsDomain(Domain):
     def __init__(self, iterable: Iterable):
         self.iterable = iterable
 
@@ -349,14 +221,14 @@ class IterableAsDomain(DomainAbs):
         return f"Domain({self.iterable})"
 
     
-class ExhaustiveIterableAsDomain(DomainAbs):
-    is_exhaustive : bool = True
+class ExhaustibleIterableAsDomain(Domain):
+    is_exhaustible: bool = True
 
     def __init__(self, iterable: Iterable):
         self.iterable = tuple(iterable)
 
-    def as_exhaustive(self, exhaustive: bool) -> Domain:
-        return self if exhaustive else IterableAsDomain(self.iterable)
+    def as_exhaustible(self, exhaustible: bool) -> Domain:
+        return self if exhaustible else IterableAsDomain(self.iterable)
 
     def __iter__(self) -> Iterator:
         # Importante: barajar los items por si acaso el número de muestras que
@@ -366,19 +238,19 @@ class ExhaustiveIterableAsDomain(DomainAbs):
         while True:
             yield from samples
     
-    def exhaustive_iterator(self) -> Iterator:
+    def exhaustible_iter(self) -> Iterator:
         return iter(self.iterable)
     
     def __str__(self):
-        return f"ExhaustiveDomain({self.iterable})"
+        return f"ExhaustibleDomain({self.iterable})"
 
 
-class Sublists(DomainAbs):
-    def __init__(self, l: list, exhaustive: bool= False):
+class Sublists(Domain):
+    def __init__(self, l: list, is_exhaustible: bool= False):
         self.l = l
-        self.is_exhaustive = exhaustive
-
-    def __iter__(self) -> Iterator:
+        self.is_exhaustible = is_exhaustible
+        
+    def __iter__(self) -> Iterator[list]:
         yield []
         n = len(self.l)
         while True:
@@ -387,27 +259,22 @@ class Sublists(DomainAbs):
             a, b = (a, b + 1) if a <= b else (b, a + 1)
             yield self.l[a:b]
         
-    def exhaustive_iterator(self) -> Iterator:
-        if not self.is_exhaustive:
-            raise RuntimeError("Domain is not marked as exhaustive")
+    def exhaustible_iter(self) -> Iterator[list]:
+        if not self.is_exhaustible:
+            raise RuntimeError("Domain is not marked as exhaustible")
         yield []
         n = len(self.l)
         for a in range(n):
             for b in range(a, n):
                 yield self.l[a:b+1]
 
-    def __str__(self):
-        return f"Sublists({self.l}"
-        
 
-class Int(DomainAbs):
-    def __init__(self,
-                 min_value: Optional[int]= None,
-                 max_value: Optional[int]= None):
-        self.min_value = min_value or 0
-        self.max_value = max_value or 10_000
-
-    def __iter__(self) -> Iterator:
+@dataclass(frozen= True)
+class Int(Domain):
+    min_value: int = 0
+    max_value: int = 10_000
+    
+    def __iter__(self) -> Iterator[int]:
         min_value = self.min_value
         max_value = self.max_value
         if min_value <= 0 <= max_value:
@@ -415,11 +282,8 @@ class Int(DomainAbs):
         while True:
             yield _random.randint(min_value, max_value)
 
-    def __str__(self):
-        return f"Int({self.min_value}, {self.max_value})"
 
-
-class PyName(DomainAbs):
+class PyName(Domain):
     def __init__(self, min_len: Optional[int]= 1, max_len: Optional[int]= 8):
         if min_len and min_len < 1:
             raise ValueError("min len ({min_len}) must be greater than zero. No python names allowed with less than one char")
@@ -445,17 +309,18 @@ class PyName(DomainAbs):
     def __str__(self) -> str:
         return f"PyName()"
     
-            
-class List(DomainAbs):
-    def __init__(self,
-                 domain_obj: DomainCoercible,
-                 min_len: Optional[int]= 0,
-                 max_len: Optional[int]= 20):
-        self.domain = desugar_domain(domain_obj)
-        self.min_len = min_len
-        self.max_len = max_len
+
+@dataclass(frozen= True)
+class List(Domain):
+    domain_obj: InitVar[DomainCoercible] = None
+    min_len: Optional[int] = field(default= 0, kw_only= True)
+    max_len: Optional[int] = field(default= 20, kw_only= True)
+    domain: Domain = field(init= False)
+
+    def __post_init__(self, domain_obj: DomainCoercible):
+        super().__setattr__('domain', desugar_domain(domain_obj))
         
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[list]:
         min_len = self.min_len
         max_len = self.max_len
         if min_len == 0:
@@ -465,11 +330,8 @@ class List(DomainAbs):
             n = _random.randint(min_len, max_len)
             yield list(take(n, self.domain))
 
-    def __str__(self):
-        return f"List({self.domain})"
-
     
-class Tuple(DomainAbs):
+class Tuple(Domain):
     def __init__(self, *domain_objs: tuple(DomainCoercible,...)):
         self.domains = [desugar_domain(d) for d in domain_objs]
 
@@ -478,8 +340,10 @@ class Tuple(DomainAbs):
         while True:
             yield tuple(next(it) for it in iterators)
 
-    def exhaustive_iterator(self, env: Env) -> Iterator:
-        iterators = [domain.exhaustive_iterator(env) for domain in self.domains]
+    def exhaustible_iter(self, env: Env) -> Iterator:
+        if any(not domain.is_exhaustible for domain in self.domains):
+            raise TypeError(f"not every element is exhaustible in {self}")
+        iterators = [domain.exhaustible_iter(env) for domain in self.domains]
         return zip(*iterators)
 
     def __str__(self):
@@ -487,7 +351,7 @@ class Tuple(DomainAbs):
         return f"Tuple({items})"
 
 
-class Dict(DomainAbs):
+class Dict(Domain):
     def __init__(self, key_domain: DomainCoercible, value_domain: DomainCoercible, min_len: int= 0, max_len: int= 20):
         self.key_domain = desugar_domain(key_domain)
         self.value_domain = desugar_domain(value_domain)
@@ -510,19 +374,19 @@ class Dict(DomainAbs):
         return f"Dict({self.key_domain}, {self.value_domain})"
         
         
-class Boolean(DomainAbs):
-    is_exhaustive : bool = True
+class Boolean(Domain):
+    is_exhaustible : bool = True
 
-    def as_exhaustive(self, exhaustive: bool) -> Domain:
-        if not exhaustive:
-            raise TypeError(f"do no mark boolean as not exhaustive: {self}")
+    def as_exhaustible(self, exhaustible: bool) -> Domain:
+        if not exhaustible:
+            raise TypeError(f"do no mark boolean as not exhaustible: {self}")
         return self
     
     def __iter__(self) -> Iterator:
         while True:
             yield _random.choice([True, False])
 
-    def exhaustive_iterator(self) -> Iterator:
+    def exhaustible_iter(self) -> Iterator:
         yield False
         yield True
 
@@ -530,30 +394,30 @@ class Boolean(DomainAbs):
         return f"Boolean()"
 
 
-class None_(DomainAbs):
-    is_exhaustive : bool = True
+class None_(Domain):
+    is_exhaustible : bool = True
 
-    def as_exhaustive(self, exhaustive: bool) -> Domain:
-        if not exhaustive:
-            raise TypeError(f"do no mark None as not exhaustive: {self}")
+    def as_exhaustible(self, exhaustible: bool) -> Domain:
+        if not exhaustible:
+            raise TypeError(f"do no mark None as not exhaustible: {self}")
         return self
         
     def __iter__(self) -> Iterator:
         while True:
             yield None
 
-    def exhaustive_iterator(self) -> Iterator:
+    def exhaustible_iter(self) -> Iterator:
         yield None
         
     def __str__(self) -> str:
         return f"None()"
     
 
-class DomainUnion(DomainAbs):
+class DomainUnion(Domain):
     a: InitVar[Domain]
     b: InitVar[Domain]
     domains: list[Domain]= field(init= False)
-    is_exhaustive: bool= field(init= False)
+    is_exhaustible: bool= field(init= False)
     
     def __init__(self, a: DomainCoercible, b: DomainCoercible):
         if isinstance(a, DomainUnion):
@@ -565,10 +429,10 @@ class DomainUnion(DomainAbs):
         else:
             b = [desugar_domain(b)]
         self.domains = [*a, *b]
-        self.is_exhaustive = all(d.is_exhaustive for d in self.domains)
+        self.is_exhaustible = all(d.is_exhaustible for d in self.domains)
 
-    def as_exhaustive(self, exhaustive: bool) -> Domain:
-        raise TypeError(f"can not mark union as exhaustive: {self}")
+    def as_exhaustible(self, exhaustible: bool) -> Domain:
+        raise TypeError(f"can not mark union as exhaustible: {self}")
             
     def __iter__(self) -> Iterator:
         iterators = [iter(domain) for domain in self.domains]

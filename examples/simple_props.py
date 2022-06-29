@@ -16,7 +16,7 @@ def prop_superstupid_2(x):
 
 
 @forall(xs= domain.List(domain.Int(), min_len= 4, max_len= 4))
-@forall(x= lambda xs: domain.domain(xs, exhaustive= True))
+@forall(x= lambda xs: domain.domain(xs, is_exhaustible= True))
 def prop_list_and_element_from_it(xs, x):
     return x in xs
 
@@ -43,12 +43,12 @@ def prop_la_suma_es_conmutativa(x, y):
 
 
 @forall(x= domain.Int())
-@exists(y= domain.domain(range(1, 9), exhaustive= True))
+@exists(y= domain.domain(range(1, 9), is_exhaustible= True))
 def prop_stupid(x, y):
     return x % y > 1
 
 
-@exists(x= domain.domain(range(10), exhaustive= True))
+@exists(x= domain.domain(range(10), is_exhaustible= True))
 def prop_even_more_stupid(x):
     return x > 7
 
@@ -67,7 +67,7 @@ def evens(input: Iterable[int]) -> Iterable[int]:
     return [ x for x in input if x % 2 == 0 or x == 101 ] # <- BUG
 
 @forall(l= domain.List(domain.Int()))
-@forall(l1= lambda l: domain.Sublists(evens(l), exhaustive= len(l) < 6))
+@forall(l1= lambda l: domain.Sublists(evens(l), is_exhaustible= len(l) < 6))
 def evens_sublists_sum_is_even(l, l1):
     return sum(l1) % 2 == 0
 

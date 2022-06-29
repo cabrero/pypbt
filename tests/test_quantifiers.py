@@ -26,7 +26,7 @@ def pred_false(x):
     ]
 )
 def test_finds_counterexample(iterable, pred):
-    dom = domain.domain(iterable, exhaustive= True)
+    dom = domain.domain(iterable, is_exhaustible= True)
     prop = quantifier.forall(x= dom)(pred)
     assert not all(result for _, result in zip(range(100), prop.qcproperty(env= {})))
     

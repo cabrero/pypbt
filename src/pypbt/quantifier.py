@@ -49,7 +49,7 @@ VarName = str
 
 DomainLambda = Callable[[...], DomainCoercible]
 
-class DomainExpr(NamedTuple):
+class DomainExprWithFreeVars(NamedTuple):
     fun: DomainLambda
     unbound_vars: list[str]
 
@@ -57,16 +57,17 @@ class DomainExpr(NamedTuple):
         return f"{self.unbound_vars} => {self.fun}"
 
 
-def domain_expr(fun: DomainLambda) -> DomainExpr:
+def domain_expr_with_free_vars(fun: DomainLambda) -> DomainExprWithFreeVars:
     signature = inspect.signature(fun)
     unbound_vars = list(signature.parameters.keys())
     if len(unbound_vars) == 0:
         raise TypeError(f"no free variables")
-    return DomainExpr(fun, unbound_vars)
+    return DomainExprWithFreeVars(fun, unbound_vars)
     
 
-def bind_and_eval(expr: Union[DomainExpr, Domain], env: Env) -> Domain:
-    if not isinstance(expr, DomainExpr):
+def bind_and_eval(expr: Union[DomainExprWithFreeVars, Domain],
+                  env: Env) -> Domain:
+    if not isinstance(expr, DomainExprWithFreeVars):
         return expr
     # A la hora de construir kwargs ignoramos la variables que no
     # están en env para que el error salte al llamar a la función
@@ -107,7 +108,7 @@ def _preprocess_domain(arg: QArg) -> Domain:
     except TypeError:
         pass
     if callable(arg):
-        return domain_expr(arg)
+        return domain_expr_with_free_vars(arg)
     else:
         raise TypeError(f"Expected a domain, got {arg}")
 
@@ -183,8 +184,8 @@ class ForAll(QCProperty):
         qcproperty = self.qcproperty
 
         # Si el dominio está marcado como finito recorremos el dominio entero
-        if domain_obj.is_exhaustive:
-            domain_samples = domain_obj.exhaustive_iterator()
+        if domain_obj.is_exhaustible:
+            domain_samples = domain_obj.exhaustible
         else:
             domain_samples = take(self.n_samples, domain_obj)
             
@@ -194,9 +195,7 @@ class ForAll(QCProperty):
     def __str__(self):
         return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
                 f"{textwrap.indent(str(self.qcproperty), '  ')}")
-        
 
-        
         
 class Exists(QCProperty):
     def __init__(self,
@@ -223,11 +222,11 @@ class Exists(QCProperty):
         domain_obj = bind_and_eval(self.domain_obj, env)
         qcproperty = self.qcproperty
 
-        if not domain_obj.is_exhaustive:
+        if not domain_obj.is_exhaustible:
             raise TypeError(f"It's not possible to check existence "
                             f"in non exhaustive domain: {domain_obj}")
         
-        for sample in domain_obj.exhaustive_iterator():
+        for sample in domain_obj.exhaustible:
             if any(qcproperty(env= {**env, quantifed_var: sample})):
                 yield True
                 return
@@ -238,13 +237,26 @@ class Exists(QCProperty):
     def __str__(self):
         return f"Exists {self.quantifed_var}: {self.domain_obj} / {self.qcproperty}"
         
-
-
     
 #---------------------------------------------------------------------------
 # decoradores
 #---------------------------------------------------------------------------
 def forall(n_samples: int= 100, **binds):
+    """Decorates a predicate funcion or another decorator with a forall quantifier.
+
+    Parameters
+    ----------
+    n_samples : int
+        The number of samples to check.
+    **binds
+        The quantified variables. Actually the number of quantified
+        variables is limited to 1.
+
+    Returns
+    -------
+    ForAll
+        An object implementing the property as a callable.
+    """
     if len(binds) != 1:
         # TODO: permitir esto como "azúcar sintáctico" ?
         #       Es decir que
@@ -268,6 +280,23 @@ def forall(n_samples: int= 100, **binds):
 
 
 def exists(**binds):
+    """Decorates a predicate funcion or another decorator with an existencial quantifier.
+
+    Parameters
+    ----------
+    **binds
+        The quantified variables. Actually the number of quantified
+        variables is limited to 1.
+
+    Returns
+    -------
+    Exists
+        An object implementing the property as a callable.
+
+    !!! warning
+        Every variable must be quantified over an exhaustible domain.
+
+    """
     if len(binds) != 1:
         # TODO: permitir esto como "azúcar sintáctico" ?
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
