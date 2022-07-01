@@ -7,6 +7,8 @@ import random
 import string
 from typing import Any, Callable, Generator, Generic, Iterable, Iterator, Optional, Protocol, Union, Sized, TypeVar
 from typing import runtime_checkable
+import unicodedata
+
 
 # TODO: ¿ queremos/podemos hacer que la semilla no sea una variable global del módulo ?
 
@@ -536,3 +538,47 @@ class DomainPyObject(Domain):
                                   for key, it in kwargs_iterators.items() })
             except StopIteration:
                 break
+
+
+@dataclass(frozen= True, kw_only= True)
+class Char(Domain):
+    coding: str= 'utf-8' # 'utf-8', 'ascii', 'ascii.printable'
+
+    def __iter__(self) -> Iterator[str]:
+        if self.coding == 'ascii.printable':
+            samples = string.printable
+            while True:
+                yield _random.choice(samples)
+        elif self.coding == 'ascii':
+            while True:
+                yield chr(_random.randint(0, 255))
+        elif self.coding == 'utf-8':
+            # Opción desechada: listar los intervalos de codepoints válidos y generar uno
+            # dentro del intervalo.
+            # Para grandes números, parece (no lo hemos comprobado) más eficiente generar
+            # al azar y rechazar los que sean inválidos.
+            while True:
+                char = chr(_random.randint(0x20, 0xe007f))
+                if unicodedata.category(char)[0] != 'C':
+                    yield char
+        else:
+            raise ValueError(f"unkown character coding: {self.coding}")
+                          
+        
+@dataclass(frozen= True, kw_only= True)
+class String(Domain):
+    coding: str= 'utf-8' # 'utf-8', 'ascii', 'ascii.printable'
+    min_len: int= 0
+    max_len: int= 80
+
+    def __iter__(self) -> Iterator[str]:
+        min_len = self.min_len
+        max_len = self.max_len
+        if min_len == 0:
+            yield ''
+            min_len = 1
+        dom_char = Char(coding= self.coding)
+        while True:
+            yield "".join(islice(dom_char, _random.randint(min_len, max_len)))
+
+        
