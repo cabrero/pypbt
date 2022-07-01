@@ -157,3 +157,42 @@ def test_samples_limit():
     dom = domain.Int().that(samples_limit= 10)
     x = islice(dom, 100)
     assert len(list(x)) == 10
+
+
+def test_domain_char_ascii():
+    """El domino Char(ascii) sólo genera caracteres ascii.
+    """
+    dom = domain.Char(coding= 'ascii')
+    for char in islice(dom, DEFAULT_N_SAMPLES):
+        assert ord(char) < 256
+
+        
+def test_domain_char_ascii_printable():
+    """El domino Char(ascii.printable) sólo genera caracteres ascii
+    printables.
+
+    """
+    dom = domain.Char(coding= 'ascii.printable')
+    for char in islice(dom, DEFAULT_N_SAMPLES):
+        assert 8 < ord(char) < 127
+
+
+def test_domain_char_utf8():
+    """El dominio Char(utf-8) sólo genera caracters utf-8.
+    """
+    dom = domain.Char(coding= 'utf-8')
+    for char in islice(dom, DEFAULT_N_SAMPLES):
+        try:
+            char.encode('utf-8')
+        except UnicodeEncodeError:
+            assert False, f"0x{ord(char):04x} is not a valid utf-8 codepoint"
+
+
+def test_domain_str():
+    """El dominio devuelve cadenas de caracteres de la longuitud
+    especificada.
+
+    """
+    dom = domain.String(max_len= 78)
+    for s in islice(dom, DEFAULT_N_SAMPLES):
+        assert 0<= len(s) <= 78
