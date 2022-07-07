@@ -376,11 +376,6 @@ class PyName(Domain):
 class Boolean(Domain):
     is_exhaustible: bool = True
 
-    def as_exhaustible(self, exhaustible: bool) -> Domain:
-        if not exhaustible:
-            raise TypeError(f"do no mark boolean as not exhaustible: {self}")
-        return self
-    
     def __iter__(self) -> Iterator:
         while True:
             yield _random.choice([True, False])
@@ -396,11 +391,6 @@ class Boolean(Domain):
 class None_(Domain):
     is_exhaustible: bool = True
 
-    def as_exhaustible(self, exhaustible: bool) -> Domain:
-        if not exhaustible:
-            raise TypeError(f"do no mark None as not exhaustible: {self}")
-        return self
-        
     def __iter__(self) -> Iterator:
         while True:
             yield None
