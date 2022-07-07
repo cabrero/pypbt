@@ -322,9 +322,12 @@ class DomainSingleton(Domain):
     def exhaustible_iter(self) -> Iterator:
         yield self.element
 
+    def __str__(self) -> str:
+        return f"Dom({self.element})"
+    
 
 @dataclass(frozen= True)
-class Int(Domain):
+class Int(Domain[int]):
     min_value: int = 0
     max_value: int = 10_000
     
@@ -341,7 +344,7 @@ class Int(Domain):
 #       Son los míticos nombres de variables, funciones, ...
 #       No es algo específico de python. Suele ser la misma
 #       sintáxis en mucho lenguajes.
-class PyName(Domain):
+class PyName(Domain[str]):
     def __init__(self, min_len: Optional[int]= 1, max_len: Optional[int]= 8):
         if min_len and min_len < 1:
             raise ValueError(
@@ -356,7 +359,7 @@ class PyName(Domain):
         self.max_len = max_len
         
     # TODO: Generar nombres de variables más adecuados
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[str]:
         n = self.max_len - self.min_len
         head_chars = ['_', *string.ascii_letters]
         tail_chars = [*head_chars, *string.digits]
@@ -373,34 +376,20 @@ class PyName(Domain):
         return f"PyName()"
     
 
-class Boolean(Domain):
+class Boolean(Domain[bool]):
     is_exhaustible: bool = True
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[bool]:
         while True:
             yield _random.choice([True, False])
 
-    def exhaustible_iter(self) -> Iterator:
+    def exhaustible_iter(self) -> Iterator[bool]:
         yield False
         yield True
 
     def __str__(self):
         return f"Boolean()"
 
-
-class None_(Domain):
-    is_exhaustible: bool = True
-
-    def __iter__(self) -> Iterator:
-        while True:
-            yield None
-
-    def exhaustible_iter(self) -> Iterator:
-        yield None
-        
-    def __str__(self) -> str:
-        return f"None()"
-    
 
 @dataclass(frozen= True, kw_only= True)
 class Char(Domain):

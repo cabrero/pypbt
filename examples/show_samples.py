@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import islice
+
 from pypbt import domain
 
 
@@ -12,7 +14,7 @@ Tree= domain.recursive(lambda Tree: (
 
 
 Json = domain.recursive(lambda Json: (
-    domain.None_() |
+    None |
     domain.Boolean() |
     domain.Int() |
     domain.List(Json()) |
@@ -21,9 +23,10 @@ Json = domain.recursive(lambda Json: (
 
 
 def print_n_samples(dom: domain.Domain, n:int = 10) -> None:
-    for sample in domain.take(n, dom):
+    for sample in islice(dom, n):
         print(sample)
 
+        
 if __name__ == "__main__":
     for i in range(1000,1200):
         print(f"seed= {i}")

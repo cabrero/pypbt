@@ -222,7 +222,7 @@ def prop_again_a_tree_looks_like_a_tree(t) -> bool:
 
 ```python
 Json = domain.recursive(lambda Json: (
-	domain.None_() |
+	None |
 	domain.Boolean() |
 	domain.Int() |
 	domain.List(Json()) |

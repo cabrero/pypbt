@@ -24,7 +24,16 @@ def prop_again_a_tree_looks_like_a_tree(t):
 
 
 Json = domain.recursive(lambda Json: (
-    domain.None_() |
+    domain.domain_expr(None) |
+    domain.Boolean() |
+    domain.Int() |
+    domain.List(Json()) |
+    domain.Dict(domain.PyName(), Json())
+))
+
+
+Json = domain.recursive(lambda Json: (
+    None |
     domain.Boolean() |
     domain.Int() |
     domain.List(Json()) |
