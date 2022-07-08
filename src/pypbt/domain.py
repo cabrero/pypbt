@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, InitVar
 import inspect
-from itertools import islice
+from itertools import chain, islice
 import random
 import string
 from typing import (
@@ -323,13 +322,13 @@ class DomainSingleton(Domain):
         yield self.element
 
     def __str__(self) -> str:
-        return f"Dom({self.element})"
+        return f"Singleton({self.element})"
     
 
-@dataclass(frozen= True)
 class Int(Domain[int]):
-    min_value: int = 0
-    max_value: int = 10_000
+    def __init__(self, min_value: int= 0, max_value: int= 10_000):
+        self.min_value= min_value
+        self.max_value= max_value
     
     def __iter__(self) -> Iterator[int]:
         min_value = self.min_value
@@ -339,13 +338,16 @@ class Int(Domain[int]):
         while True:
             yield _random.randint(min_value, max_value)
 
+    def __str__(self) -> str:
+        return f"Int(min_value= {self.min_value}, max_value= {self.max_value})"
+    
 
 # TODO: Nombre más adecuado para el dominio.
 #       Son los míticos nombres de variables, funciones, ...
 #       No es algo específico de python. Suele ser la misma
 #       sintáxis en mucho lenguajes.
 class PyName(Domain[str]):
-    def __init__(self, min_len: Optional[int]= 1, max_len: Optional[int]= 8):
+    def __init__(self, min_len: int= 1, max_len: int= 8):
         if min_len and min_len < 1:
             raise ValueError(
                 f"min len ({min_len}) must be greater than zero."
@@ -387,13 +389,13 @@ class Boolean(Domain[bool]):
         yield False
         yield True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Boolean()"
 
 
-@dataclass(frozen= True, kw_only= True)
 class Char(Domain):
-    coding: str = 'utf-8'  # 'utf-8', 'ascii', 'ascii.printable'
+    def __init__(self, coding: str= 'utf-8'):
+        self.coding = coding  # 'utf-8', 'ascii', 'ascii.printable'
 
     def __iter__(self) -> Iterator[str]:
         if self.coding == 'ascii.printable':
@@ -414,13 +416,16 @@ class Char(Domain):
                     yield char
         else:
             raise ValueError(f"unkown character coding: {self.coding}")
+
+    def __str__(self) -> str:
+        return f"Char({self.coding})"
                           
         
-@dataclass(frozen= True, kw_only= True)
 class String(Domain):
-    coding: str = 'utf-8' # 'utf-8', 'ascii', 'ascii.printable'
-    min_len: int = 0
-    max_len: int = 80
+    def __init__(self, coding: str= 'utf-8', min_len: int= 0, max_len: int= 80):
+        self.coding = coding  # see Char()
+        self.min_len = min_len
+        self.max_len = max_len
 
     def __iter__(self) -> Iterator[str]:
         min_len = self.min_len
@@ -432,7 +437,11 @@ class String(Domain):
         while True:
             yield "".join(islice(dom_char, _random.randint(min_len, max_len)))
 
-
+    def __str__(self) -> str:
+        s = f"String({self.coding}, min_len= {self.min_len}, max_len= {self.max_len})"
+        return s
+                          
+        
 # --------------------------------------------------------------------------------------
 # Domains of aggregated objects
 # --------------------------------------------------------------------------------------
@@ -461,6 +470,9 @@ class DomainFromIterable(Domain):
     def exhaustible_iter(self) -> Iterator:
         return iter(self.iterable)
 
+    def __str__(self) -> str:
+        return f"domain({self.iterable})"
+
 
 class DomainFromGeneratorFun(Domain):
     def __init__(self, fun: Callable, is_exhaustible: bool):
@@ -482,7 +494,10 @@ class DomainFromGeneratorFun(Domain):
 
     def exhaustible_iter(self) -> Iterator:
         return self.fun()
-    
+
+    def __str__(self) -> str:
+        return f"domain({self.iterable})"
+
 
 class Tuple(Domain):
     """Domain of n-tuples.
@@ -516,15 +531,17 @@ class Tuple(Domain):
         return f"Tuple({items})"
 
 
-@dataclass(frozen= True)
 class List(Domain):
-    domain_obj: InitVar[DomainCoercible] = None
-    min_len: Optional[int] = field(default= 0, kw_only= True)
-    max_len: Optional[int] = field(default= 20, kw_only= True)
-    domain: Domain = field(init= False)
-
-    def __post_init__(self, domain_obj: DomainCoercible):
-        super().__setattr__('domain', domain_expr(domain_obj))
+    def __init__(
+            self,
+            domain_obj: DomainCoercible,
+            /,
+            min_len: int= 0,
+            max_len: int= 20
+    ):
+        self.min_len = min_len
+        self.max_len = max_len
+        self.domain: Domain = domain_expr(domain_obj)
         
     def __iter__(self) -> Iterator[list]:
         min_len = self.min_len
@@ -536,6 +553,11 @@ class List(Domain):
             n = _random.randint(min_len, max_len)
             yield list(islice(self.domain, n))
 
+    def __str__(self) -> str:
+        min_len = self.min_len
+        max_len = self.max_len
+        return f"List({self.domain}, {min_len=}, {max_len=})"
+    
     
 class Sublists(Domain):
     def __init__(self, l: list, is_exhaustible: bool= False):
@@ -560,6 +582,9 @@ class Sublists(Domain):
             for b in range(a, n):
                 yield self.l[a:b+1]
 
+    def __str__(self) -> str:
+        return f"Sublists({self.l})"
+    
 
 class Dict(Domain):
     def __init__(self,
@@ -627,3 +652,21 @@ class DomainPyObject(Domain):
                                   for key, it in kwargs_iterators.items() })
             except StopIteration:
                 break
+
+    def __str__(self) -> str:
+        if hasattr(self.factory, '__name'):
+            name = self.factory.__name__
+        else:
+            name = (
+                repr(self.factory)
+                .removeprefix("<class '")
+                .removeprefix("__main__.")
+                .removesuffix("'>")
+            )
+        s = ", ".join(
+            chain(
+                (str(d) for d in self.domain_args),
+                (f"{k}= {v}" for k, v in self.domain_kwargs.items()),
+            )
+        )
+        return f"domain({name}({s}))"
