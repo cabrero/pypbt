@@ -19,7 +19,7 @@ def run_props(file: Path) -> None:
         obj = getattr(module, name)
         if is_qcproperty(obj):
             prop = obj
-            print(prop)
+            print(prop.get_source())
             for i, result in enumerate(prop(env= {}), start= 1):
                 if result:
                     print(".", end= "", flush= True)

@@ -161,6 +161,9 @@ class Predicate(QCProperty):
     def __str__(self):
         return str(self.pred.__name__)
 
+    def get_source(self) -> str:
+        return inspect.getsource(self.pred)
+    
 
 #---------------------------------------------------------------------------
 # Cuantificadores
@@ -201,10 +204,13 @@ class ForAll(QCProperty):
         for sample in domain_samples:
             yield from prop(env= {**env, quantified_var: sample})
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (f"ForAll {self.quantified_var}: {self.domain_obj}\n"
                 f"{textwrap.indent(str(self.qcproperty), '  ')}")
 
+    def get_source(self) -> str:
+        return self.qcproperty.get_source()
+    
         
 class Exists(QCProperty):
     def __init__(self,
@@ -243,6 +249,9 @@ class Exists(QCProperty):
         yield Left(env= env)
         return
 
+    def get_source(self) -> str:
+        return self.qcproperty.get_source()
+    
     def __str__(self):
         return f"Exists {self.quantified_var}: {self.domain_obj} / {self.qcproperty}"
         
