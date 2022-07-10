@@ -20,6 +20,9 @@ from typing import (
 import unicodedata
 
 
+D = chr(0x1D56F)
+
+
 # --------------------------------------------------------------------------------------
 # Pseudo random
 # --------------------------------------------------------------------------------------
@@ -322,7 +325,7 @@ class DomainSingleton(Domain):
         yield self.element
 
     def __str__(self) -> str:
-        return f"Singleton({self.element})"
+        return f"{D}:Singleton({self.element})"
     
 
 class Int(Domain[int]):
@@ -471,7 +474,7 @@ class DomainFromIterable(Domain):
         return iter(self.iterable)
 
     def __str__(self) -> str:
-        return f"domain({self.iterable})"
+        return f"{D}:{self.iterable}"
 
 
 class DomainFromGeneratorFun(Domain):
@@ -496,7 +499,7 @@ class DomainFromGeneratorFun(Domain):
         return self.fun()
 
     def __str__(self) -> str:
-        return f"domain({self.iterable})"
+        return f"{D}:{self.iterable}"
 
 
 class Tuple(Domain):
@@ -669,4 +672,4 @@ class DomainPyObject(Domain):
                 (f"{k}= {v}" for k, v in self.domain_kwargs.items()),
             )
         )
-        return f"domain({name}({s}))"
+        return f"{D}:{name}({s})"

@@ -205,8 +205,10 @@ class ForAll(QCProperty):
             yield from prop(env= {**env, quantified_var: sample})
 
     def __str__(self) -> str:
-        return (f"ForAll {self.quantified_var}: {self.domain_obj}\n"
-                f"{textwrap.indent(str(self.qcproperty), '  ')}")
+        return (
+            f"ForAll {self.quantified_var} in {self.domain_obj}\n"
+            f"{textwrap.indent(str(self.qcproperty), '  ')}"
+        )
 
     def get_source(self) -> str:
         return self.qcproperty.get_source()
@@ -253,7 +255,10 @@ class Exists(QCProperty):
         return self.qcproperty.get_source()
     
     def __str__(self):
-        return f"Exists {self.quantified_var}: {self.domain_obj} / {self.qcproperty}"
+        return (
+            f"Exists {self.quantified_var} in {self.domain_obj}\n"
+            f"{textwrap.indent(str(self.qcproperty), '  ')}"
+        )
         
     
 #---------------------------------------------------------------------------

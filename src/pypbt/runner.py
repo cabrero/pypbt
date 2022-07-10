@@ -19,7 +19,12 @@ def run_props(file: Path) -> None:
         obj = getattr(module, name)
         if is_qcproperty(obj):
             prop = obj
-            print(prop.get_source())
+            try:
+                # TODO: Truncate after n lines of predicate
+                s = prop.get_source()
+            except OSError:
+                s = str(prop)
+            print(s)
             for i, result in enumerate(prop(env= {}), start= 1):
                 if result:
                     print(".", end= "", flush= True)
