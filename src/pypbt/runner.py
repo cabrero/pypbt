@@ -8,6 +8,7 @@ import sys
 
 from pypbt.quantifier import is_qcproperty
 
+
 def run_props(file: Path) -> None:
     parent = str(file.parent)
     module_name = file.stem
@@ -18,14 +19,16 @@ def run_props(file: Path) -> None:
         obj = getattr(module, name)
         if is_qcproperty(obj):
             prop = obj
-            print(prop)
+            print(prop.get_source())
             for i, result in enumerate(prop(env= {}), start= 1):
                 if result:
                     print(".", end= "", flush= True)
                 else:
                     print("x")
                     print(f"After {i} tests" if i>1 else "After 1 test")
-                    print(result)
+                    if result.exc is not None:
+                        print(result.exc)
+                    print(", ".join(f"{k} = {v}" for k,v in result.env.items()))
                     break
             else:
                 print()

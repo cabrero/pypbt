@@ -222,7 +222,7 @@ def prop_again_a_tree_looks_like_a_tree(t) -> bool:
 
 ```python
 Json = domain.recursive(lambda Json: (
-	domain.None_() |
+	None |
 	domain.Boolean() |
 	domain.Int() |
 	domain.List(Json()) |
@@ -274,3 +274,16 @@ Let's say we want to define the domain: `Fraction(Int(), Int())`. We may:
 				    yield Fraction(numerator, denominator)
 	
 
+    !!! warning
+	    Avoid the Borg pattern. Iterators created this way share the object's state.
+		Domain objects should be inmutable.
+		
+		This will kill a kitty in internet:
+		
+		    :::python
+		    class Foo:
+					a: int= 0
+					def __iter__(self) -> Iterator[int]:
+						while True:
+							yield self.a
+							self.a = self.a + 2			

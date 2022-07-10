@@ -3,6 +3,9 @@
 When we take a look a [diátaxis.fr](https://diataxis.fr), its ideas seem
 obvious. That's why we must read it.
 
+Another useful resource is this article about [documentation
+systems](https://documentation.divio.com/)
+
 ## style
 
 - We mainly use 1st person plural.

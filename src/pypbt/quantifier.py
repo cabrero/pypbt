@@ -5,29 +5,38 @@ from itertools import islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
 
-from .domain import domain_expr, Domain, DomainCoercible, Env
+from .domain import domain_expr, Domain, DomainCoercible
+
+
+DEFAULT_N_SAMPLES = 100
 
 
 # Property = ForAll Property
 #          | Exists Property
 #          | Predicate
 #
-# Posibles críticas a esta definición de `Property`:
+# Críticas a esta definición de `Property`:
 #
 #   - `Property = Predicate` es un caso muy extremo de propiedad.
 #
-#   - Nada impide que el programado construya mal una propiedad. En concreto
-#     puede terner variables libres (en nuestro caso, sin cuantificar).
-#     Sin embargo el conjunto de errores que puede cometer un programador es
-#     infinito. No podemos evitarlos todos.
+#   - Nada impide que el programado construya mal una propiedad. En
+#     concreto puede terner variables libres, i.e., en nuestro caso,
+#     sin cuantificar.  Sin embargo el conjunto de errores que puede
+#     cometer un programador es infinito. No podemos evitarlos
+#     todos. Tampoco es algo que pudiese evitar la mayoría de sistemas
+#     de tipos.
 #
-# Las variables libres en un predicado pueden no ser tal cosa si incorporamos
-# conceptos como las `fixtures` de `pytest`. En este caso son variables que
-# no están ligadas en ningún cuantificador, pero están ligadas en otro contexto
-# más global (y compartido por varias propiedades).
+# TODO: No está reflejado el hecho de que una propiedad pueda tener
+# variables, libres o ligadas.
+#
+# TODO: Las variables libres en un predicado pueden no ser tal cosa si
+# incorporamos conceptos como las `fixtures` de `pytest`. En este caso
+# son variables que no están ligadas en ningún cuantificador, pero
+# están ligadas en otro contexto más global (y compartido por varias
+# propiedades).
 
 
-# :( property es una palabra clave en python
+# :( `property` is a built-in function in python
 class QCProperty: pass
 
 
@@ -35,73 +44,95 @@ def is_qcproperty(x):
     return isinstance(x, QCProperty)
 
 
+def qcproperty(arg) -> QCProperty:
+    if is_qcproperty(arg):
+        return arg
+    else:
+        return Predicate(arg)
+
+
+# Entorno. Guarda las ligaduras de variables.
 VarName = str
+Env = dict[VarName, DomainCoercible]
 
 
-
-
-#---------------------------------------------------------------------------
-# Expresiones de dominio con variables libres
-#---------------------------------------------------------------------------
-# Expresiones con variables libres. Una vez ligadas las variables, si
-# evaluamos la expresión, obtenemos un dominio.
+# --------------------------------------------------------------------------------------
+# Domain LambdaExpr
+# --------------------------------------------------------------------------------------
+# Abstractions containing free variables that will evaluate to a Domain.
+# The term should be a DomainCoercible expression.
 #
-# Se representa como una función cuyos parámetros son las variables libres.
+# Thus, actually, `Callable` means `lambda`.
+DomainLambdaExpr = Callable[[...], Domain]
 
-DomainLambda = Callable[[...], DomainCoercible]
-
-class DomainExprWithFreeVars(NamedTuple):
-    fun: DomainLambda
-    unbound_vars: list[str]
-
-    def __str__(self) -> str:
-        return f"{self.unbound_vars} => {self.fun}"
+def is_lambda_expr(arg: QArg) -> bool:
+    return getattr(arg, '__name__', None) == '<lambda>'
 
 
-def domain_expr_with_free_vars(fun: DomainLambda) -> DomainExprWithFreeVars:
-    signature = inspect.signature(fun)
-    unbound_vars = list(signature.parameters.keys())
-    if len(unbound_vars) == 0:
-        raise TypeError(f"no free variables")
-    return DomainExprWithFreeVars(fun, unbound_vars)
-    
+BOUND_VARS_ATTR = '__domain_lambda_expr_bound_vars__'
 
-def bind_and_eval(expr: Union[DomainExprWithFreeVars, Domain],
-                  env: Env) -> Domain:
-    if not isinstance(expr, DomainExprWithFreeVars):
+
+def domain_lambda_expr(expr: Callable) -> DomainLambdaExpr:
+    # El cálculo de las bound_vars lo hacemos aquí en lugar de hacerlo
+    # en `reduce_expr` porque esa función se llama por cada sample del
+    # quantificador "padre":
+    #
+    # @forall(xs= domain.List(domain.Int(), min_len= 4, max_len= 4))
+    # @forall(x= lambda xs: domain_expr(xs, is_exhaustible= True))
+    signature = inspect.signature(expr)
+    bound_vars = list(signature.parameters.keys())
+    if len(bound_vars) == 0:
+        raise TypeError(f"no bound variables in {expr}")
+    setattr(expr, BOUND_VARS_ATTR, bound_vars)
+    return expr
+
+
+def reduce_expr(expr: DomainLambdaExpr, env: Env) -> Domain:
+    bound_vars = getattr(expr, BOUND_VARS_ATTR, None)
+    if bound_vars is None:
         return expr
     # A la hora de construir kwargs ignoramos la variables que no
     # están en env para que el error salte al llamar a la función
-    kwargs = { k: env[k] for k in expr.unbound_vars if k in env}
-    return domain_expr(expr.fun(**kwargs))
-    
-
-#---------------------------------------------------------------------------
-# Tipos.
-# Syntax sugar y otras facilities
-#---------------------------------------------------------------------------
-# Parámetro de la variable en el decorador de cuantificación.
-QArg = Union['DomainLambda', DomainCoercible]
+    kwargs = { k: env[k] for k in bound_vars if k in env }
+    return domain_expr(expr(**kwargs))
 
 
-def _preprocess_domain(arg: QArg) -> Domain:
-    if getattr(arg, '__name__', None) == '<lambda>':
-        return domain_expr_with_free_vars(arg)
+# --------------------------------------------------------------------------------------
+# Syntax sugar
+# --------------------------------------------------------------------------------------
+"""Values binded to the quantified variables.
+
+It's not very sound, because a `DomainLambadTerm` is also a
+`DomainCoercible`. As any object is coercible.
+"""
+QArg = Union[DomainLambdaExpr, DomainCoercible]
+
+
+def desugar_var_value(arg: QArg) -> Domain:
+    if is_lambda_expr(arg):
+        return domain_lambda_expr(arg)
     else:
         return domain_expr(arg)
 
 
+#---------------------------------------------------------------------------
+# 
+#---------------------------------------------------------------------------
 class Left:
-    def __init__(self, e):
+    def __init__(self, env, exc= None):
         # TODO: e puede ser Env o [Env,Exception]
         #       regularizar esto
-        self.e = e
+        self.env = env
+        self.exc = exc
 
     def __bool__(self):
         return False
 
     def __str__(self):
-        return f"Left({self.e})"
+        if self.exc is None:
+            return f"Left({self.env})"
+        else:
+            return f"Left({self.env}, {self.exc})"
     
     
 # -- Either bool
@@ -124,12 +155,15 @@ class Predicate(QCProperty):
         try:
             result = self.pred(**env) or Left(env)
         except Exception as e:
-            result = Left((env, e))
+            result = Left(env= env, exc= e)
         yield result
 
     def __str__(self):
         return str(self.pred.__name__)
 
+    def get_source(self) -> str:
+        return inspect.getsource(self.pred)
+    
 
 #---------------------------------------------------------------------------
 # Cuantificadores
@@ -144,22 +178,22 @@ class Predicate(QCProperty):
 
 class ForAll(QCProperty):
     def __init__(self,
-                 quantifed_var: VarName,
+                 quantified_var: VarName,
                  domain_obj: Domain,
                  qcproperty: QCProperty,
                  n_samples: int):
-        self.quantifed_var = quantifed_var
+        self.quantified_var = quantified_var
         self.domain_obj = domain_obj
         self.qcproperty = qcproperty
         self.n_samples = n_samples
 
     def __call__(self, /, env: Env) -> Iterator[CheckResult]:
-        quantifed_var = self.quantifed_var
-        if quantifed_var in env:
-            raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
+        quantified_var = self.quantified_var
+        if quantified_var in env:
+            raise TypeError(f"Variable {quantified_var} is shadowed in {self}")
 
-        domain_obj = bind_and_eval(self.domain_obj, env)
-        qcproperty = self.qcproperty
+        domain_obj = reduce_expr(self.domain_obj, env)
+        prop = self.qcproperty
 
         # Si el dominio está marcado como finito recorremos el dominio entero
         if domain_obj.is_exhaustible:
@@ -168,16 +202,19 @@ class ForAll(QCProperty):
             domain_samples = islice(domain_obj, self.n_samples)
             
         for sample in domain_samples:
-            yield from qcproperty(env= {**env, quantifed_var: sample})
+            yield from prop(env= {**env, quantified_var: sample})
 
-    def __str__(self):
-        return (f"ForAll {self.quantifed_var}: {self.domain_obj}\n"
+    def __str__(self) -> str:
+        return (f"ForAll {self.quantified_var}: {self.domain_obj}\n"
                 f"{textwrap.indent(str(self.qcproperty), '  ')}")
 
+    def get_source(self) -> str:
+        return self.qcproperty.get_source()
+    
         
 class Exists(QCProperty):
     def __init__(self,
-                 quantifed_var: VarName,
+                 quantified_var: VarName,
                  domain_obj: Domain,
                  qcproperty: QCProperty):
         if not isinstance(qcproperty, Predicate):
@@ -187,39 +224,42 @@ class Exists(QCProperty):
             #       a la función `qc` que indique si tiene que ser exhaustive
             raise TypeError(f"This tool cannot check Exists on another quantifier")
         
-        self.quantifed_var = quantifed_var
+        self.quantified_var = quantified_var
         self.domain_obj = domain_obj
         self.qcproperty = qcproperty
 
         
     def __call__(self, /, env: Env) -> Iterator[CheckResult]:
-        quantifed_var = self.quantifed_var
-        if quantifed_var in env:
-            raise TypeError(f"Variable {quantifed_var} is shadowed in {self}")
+        quantified_var = self.quantified_var
+        if quantified_var in env:
+            raise TypeError(f"Variable {quantified_var} is shadowed in {self}")
 
-        domain_obj = bind_and_eval(self.domain_obj, env)
-        qcproperty = self.qcproperty
+        domain_obj = reduce_expr(self.domain_obj, env)
+        prop = self.qcproperty
 
         if not domain_obj.is_exhaustible:
             raise TypeError(f"It's not possible to check existence "
                             f"in non exhaustive domain: {domain_obj}")
         
         for sample in domain_obj.exhaustible:
-            if any(qcproperty(env= {**env, quantifed_var: sample})):
+            if any(prop(env= {**env, quantified_var: sample})):
                 yield True
                 return
                 
-        yield Left(f"{env} -> {str(self)}")
+        yield Left(env= env)
         return
 
+    def get_source(self) -> str:
+        return self.qcproperty.get_source()
+    
     def __str__(self):
-        return f"Exists {self.quantifed_var}: {self.domain_obj} / {self.qcproperty}"
+        return f"Exists {self.quantified_var}: {self.domain_obj} / {self.qcproperty}"
         
     
 #---------------------------------------------------------------------------
-# decoradores
+# Decorators
 #---------------------------------------------------------------------------
-def forall(n_samples: int= 100, **binds):
+def forall(n_samples: int= DEFAULT_N_SAMPLES, **binds):
     """Decorates a predicate funcion or another decorator with a forall quantifier.
 
     Parameters
@@ -227,8 +267,11 @@ def forall(n_samples: int= 100, **binds):
     n_samples : int
         The number of samples to check.
     **binds
-        The quantified variables. Actually the number of quantified
-        variables is limited to 1.
+        The quantified variables. The number of quantified
+        variables must be 1. In order to quantify more than
+        one variable, you should write each variable in its own
+        `@forall`.
+
 
     Returns
     -------
@@ -236,23 +279,19 @@ def forall(n_samples: int= 100, **binds):
         An object implementing the property as a callable.
     """
     if len(binds) != 1:
-        # TODO: permitir esto como "azúcar sintáctico" ?
-        #       Es decir que
-        #           @forall(x= ..., y= ...)
-        #       sea lo mismo que
-        #           @forall(x= ...)
-        #           @forall(y= ...)
-        #       La pregunta es si el código es más inteligible.
+        # TODO: ¿ queremos implementar forall(x= ..., y= ...) como
+        #         forall(x,y= ...,...) ?
+        #       Es decir forall(t= Tuple(...,...) x,y= t
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
+    var, obj = next(iter(binds.items()))
     
     def factory(arg):
-        if is_qcproperty(arg):
-            qcproperty = arg
-        else:
-            qcproperty = Predicate(arg)
-        quantifed_var, obj = list(binds.items())[0]
-        domain_obj = _preprocess_domain(obj)
-        return ForAll(quantifed_var, domain_obj, qcproperty, n_samples= n_samples)
+        return ForAll(
+            quantified_var= var,
+            domain_obj= desugar_var_value(obj),
+            qcproperty= qcproperty(arg),
+            n_samples= n_samples
+        )
 
     return factory
 
@@ -263,8 +302,11 @@ def exists(**binds):
     Parameters
     ----------
     **binds
-        The quantified variables. Actually the number of quantified
-        variables is limited to 1.
+        The quantified variables. The number of quantified
+        variables must be 1. In order to quantify more than
+        one variable, you should write each variable in its own
+        `@exists`.
+
 
     Returns
     -------
@@ -276,17 +318,15 @@ def exists(**binds):
 
     """
     if len(binds) != 1:
-        # TODO: permitir esto como "azúcar sintáctico" ?
         raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
-
+    var, obj = next(iter(binds.items()))
+    
     def factory(arg):
-        if is_qcproperty(arg):
-            qcproperty = arg
-        else:
-            qcproperty = Predicate(arg)
-        quantifed_var, obj = list(binds.items())[0]
-        domain_obj = _preprocess_domain(obj)
-        return Exists(quantifed_var, domain_obj, qcproperty)
+        return Exists(
+            quantified_var= var,
+            domain_obj= desugar_var_value(obj),
+            qcproperty= qcproperty(arg)
+        )
 
     return factory
 
