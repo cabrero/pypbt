@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 import sys
 
-from pypbt.quantifier import is_qcproperty
+from pypbt.quantifiers import is_qcproperty
 
 
 def run_props(file: Path) -> None:

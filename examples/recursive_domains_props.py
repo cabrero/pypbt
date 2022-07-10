@@ -1,19 +1,19 @@
-from pypbt import domain
-from pypbt.quantifier import exists, forall
+from pypbt import domains
+from pypbt.quantifiers import exists, forall
 
 
-@forall(t= domain.recursive(lambda Tree: (
-        domain.Boolean() |
-        domain.Tuple(Tree(), Tree())
+@forall(t= domains.recursive(lambda Tree: (
+        domains.Boolean() |
+        domains.Tuple(Tree(), Tree())
     ))())
 def prop_a_tree_looks_like_a_tree(t):
     return type(t) == bool or (
         type(t) == tuple and len(t) == 2)
 
 
-Tree= domain.recursive(lambda Tree: (
-        domain.Boolean() |
-        domain.Tuple(Tree(), Tree())
+Tree= domains.recursive(lambda Tree: (
+        domains.Boolean() |
+        domains.Tuple(Tree(), Tree())
     ))
 
 
@@ -23,21 +23,21 @@ def prop_again_a_tree_looks_like_a_tree(t):
         type(t) == tuple and len(t) == 2)
 
 
-Json = domain.recursive(lambda Json: (
-    domain.domain_expr(None) |
-    domain.Boolean() |
-    domain.Int() |
-    domain.List(Json()) |
-    domain.Dict(domain.PyName(), Json())
+Json = domains.recursive(lambda Json: (
+    domains.domain_expr(None) |
+    domains.Boolean() |
+    domains.Int() |
+    domains.List(Json()) |
+    domains.Dict(domains.PyName(), Json())
 ))
 
 
-Json = domain.recursive(lambda Json: (
+Json = domains.recursive(lambda Json: (
     None |
-    domain.Boolean() |
-    domain.Int() |
-    domain.List(Json()) |
-    domain.Dict(domain.PyName(), Json())
+    domains.Boolean() |
+    domains.Int() |
+    domains.List(Json()) |
+    domains.Dict(domains.PyName(), Json())
 ))
 
 # TODO: propiedad que use el json

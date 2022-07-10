@@ -5,7 +5,7 @@ from itertools import islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
 
-from .domain import domain_expr, Domain, DomainCoercible
+from .domains import domain_expr, Domain, DomainCoercible
 
 
 DEFAULT_N_SAMPLES = 100

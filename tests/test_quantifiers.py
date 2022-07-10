@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 
-from pypbt import domain, quantifier
+from pypbt import domains, quantifiers
 
 
 """Para-todo encuentra el contraejemplo en dominios suficientemente finitos
@@ -26,8 +26,8 @@ def pred_false(x):
     ]
 )
 def test_finds_counterexample(iterable, pred):
-    dom = domain.domain_expr(iterable, is_exhaustible= True)
-    prop = quantifier.forall(x= dom)(pred)
+    dom = domains.domain_expr(iterable, is_exhaustible= True)
+    prop = quantifiers.forall(x= dom)(pred)
     assert not all(result for _, result in zip(range(100), prop.qcproperty(env= {})))
     
 
