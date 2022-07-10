@@ -4,6 +4,6 @@ from typing import Iterable
 import pytest
 
 
-from pypbt import domain
+from pypbt import domains
 
 

@@ -8,7 +8,7 @@ from typing import Callable
 import pytest
 
 
-from pypbt import domain
+from pypbt import domains
 
 
 DEFAULT_N_SAMPLES = 1000
@@ -21,21 +21,21 @@ DEFAULT_N_SAMPLES = 1000
 
 
 domain_data = [
-        (lambda: domain.Int(), Counter),
+        (lambda: domains.Int(), Counter),
         
-        (lambda: domain.PyName(), Counter),
+        (lambda: domains.PyName(), Counter),
         
-        (lambda: domain.Tuple(domain.Int(), domain.Int(), domain.Int()), Counter),
+        (lambda: domains.Tuple(domains.Int(), domains.Int(), domains.Int()), Counter),
         
-        (lambda: domain.List(domain.Int()),
+        (lambda: domains.List(domains.Int()),
          lambda samples: Counter(map(tuple, samples))),
         
-        (lambda: domain.Dict(domain.PyName(), domain.Int()),
+        (lambda: domains.Dict(domains.PyName(), domains.Int()),
          lambda samples: Counter(tuple(sample.items()) for sample in samples)),
         
-        (lambda: (domain.Int() |
-                  domain.PyName() |
-                  domain.List(domain.Tuple(domain.Int(), domain.Int()))),
+        (lambda: (domains.Int() |
+                  domains.PyName() |
+                  domains.List(domains.Tuple(domains.Int(), domains.Int()))),
          lambda samples: Counter(tuple(sample) if type(sample) == list else sample
                                  for sample in samples)),
     ]
@@ -91,8 +91,8 @@ def test_samples_are_random_enough(domain_factory: Callable, counter_factory: Ca
 """
 Si hacemos el metadomino
 ```
-for d in domain.DomainSet():
-    assert domain.is_domain(d)
+for d in domains.DomainSet():
+    assert domains.is_domain(d)
 ```
 """
 
@@ -106,15 +106,15 @@ objetos.
                          [domain_factory for domain_factory, _ in domain_data],
                          ids= domain_data_id_func)
 def test_generation_is_reproducible(domain_factory: Callable):
-    seed = domain.get_seed()
-    domain.set_seed(seed)
+    seed = domains.get_seed()
+    domains.set_seed(seed)
     dom = domain_factory()
     print(dom, seed)
     # `islice` devuelve un generador, o sea un objeto perezoso.
     # hay que realizarlo ("desperezarlo") antes de cambiar la semilla.
     # Cosas que pasan con los efectos colaterales.¯\_(ツ)_/¯
     first_sequence = tuple(islice(dom, DEFAULT_N_SAMPLES))
-    domain.set_seed(seed)
+    domains.set_seed(seed)
     dom = domain_factory()
     print(dom, seed)
     second_sequence = tuple(islice(dom, DEFAULT_N_SAMPLES))
@@ -133,9 +133,9 @@ Operador Unión. Comprobamos:
  
 """
 def test_union_is_fair():
-    dom = (domain.Int() |
-           domain.PyName() |
-           domain.List(domain.Tuple(domain.Int(), domain.Int())))
+    dom = (domains.Int() |
+           domains.PyName() |
+           domains.List(domains.Tuple(domains.Int(), domains.Int())))
     samples = islice(dom, DEFAULT_N_SAMPLES)
     counter = Counter(type(sample) for sample in samples)
     n_int_samples = counter[int]
@@ -154,7 +154,7 @@ de un dominio.
 
 """
 def test_samples_limit():
-    dom = domain.Int().that(samples_limit= 10)
+    dom = domains.Int().that(samples_limit= 10)
     x = islice(dom, 100)
     assert len(list(x)) == 10
 
@@ -162,7 +162,7 @@ def test_samples_limit():
 def test_domain_char_ascii():
     """El domino Char(ascii) sólo genera caracteres ascii.
     """
-    dom = domain.Char(coding= 'ascii')
+    dom = domains.Char(coding= 'ascii')
     for char in islice(dom, DEFAULT_N_SAMPLES):
         assert ord(char) < 256
 
@@ -172,7 +172,7 @@ def test_domain_char_ascii_printable():
     printables.
 
     """
-    dom = domain.Char(coding= 'ascii.printable')
+    dom = domains.Char(coding= 'ascii.printable')
     for char in islice(dom, DEFAULT_N_SAMPLES):
         assert 8 < ord(char) < 127
 
@@ -180,7 +180,7 @@ def test_domain_char_ascii_printable():
 def test_domain_char_utf8():
     """El dominio Char(utf-8) sólo genera caracters utf-8.
     """
-    dom = domain.Char(coding= 'utf-8')
+    dom = domains.Char(coding= 'utf-8')
     for char in islice(dom, DEFAULT_N_SAMPLES):
         try:
             char.encode('utf-8')
@@ -193,6 +193,6 @@ def test_domain_str():
     especificada.
 
     """
-    dom = domain.String(max_len= 78)
+    dom = domains.String(max_len= 78)
     for s in islice(dom, DEFAULT_N_SAMPLES):
         assert 0<= len(s) <= 78

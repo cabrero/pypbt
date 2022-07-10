@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import mimesis
 
-from pypbt import domain
+from pypbt import domains
 
-class ProgrammingLanguage(domain.Domain):
+class ProgrammingLanguage(domains.Domain):
     def __iter__(self) -> Iterator:
         provider = mimesis.Development()
         while True:
@@ -16,8 +16,8 @@ class ProgrammingLanguage(domain.Domain):
         return "ProgrammingLanguage()"
 
 
-def print_n_samples(dom: domain.Domain, n:int = 10) -> None:
-    for sample in domain.take(n, dom):
+def print_n_samples(dom: domains.Domain, n:int = 10) -> None:
+    for sample in domains.take(n, dom):
         print(sample)
 
 if __name__ == "__main__":

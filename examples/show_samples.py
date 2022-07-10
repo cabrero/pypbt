@@ -4,25 +4,25 @@ from __future__ import annotations
 
 from itertools import islice
 
-from pypbt import domain
+from pypbt import domains
 
 
-Tree= domain.recursive(lambda Tree: (
-        domain.Boolean() |
-        domain.Tuple(Tree(), Tree())
+Tree= domains.recursive(lambda Tree: (
+        domains.Boolean() |
+        domains.Tuple(Tree(), Tree())
     ))
 
 
-Json = domain.recursive(lambda Json: (
+Json = domains.recursive(lambda Json: (
     None |
-    domain.Boolean() |
-    domain.Int() |
-    domain.List(Json()) |
-    domain.Dict(domain.PyName(), Json())
+    domains.Boolean() |
+    domains.Int() |
+    domains.List(Json()) |
+    domains.Dict(domains.PyName(), Json())
 ))
 
 
-def print_n_samples(dom: domain.Domain, n:int = 10) -> None:
+def print_n_samples(dom: domains.Domain, n:int = 10) -> None:
     for sample in islice(dom, n):
         print(sample)
 
@@ -30,7 +30,7 @@ def print_n_samples(dom: domain.Domain, n:int = 10) -> None:
 if __name__ == "__main__":
     for i in range(1000,1200):
         print(f"seed= {i}")
-        domain.set_seed(i)
+        domains.set_seed(i)
         print_n_samples(Tree())
         print()
         print_n_samples(Json())
