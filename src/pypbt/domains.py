@@ -331,7 +331,7 @@ class DomainSingleton(Domain):
 class Int(Domain[int]):
     def __init__(self, min_value: int= 0, max_value: int= 10_000):
         self.min_value= min_value
-        self.max_value= max_value
+        self.max_value= max_value  # TODO: 10_000 or sys.maxsize ?
     
     def __iter__(self) -> Iterator[int]:
         min_value = self.min_value
@@ -449,7 +449,7 @@ class String(Domain):
 # Domains of aggregated objects
 # --------------------------------------------------------------------------------------
 class DomainFromIterable(Domain):
-    def __init__(self, iterable: Iterable, is_exhaustible: bool):
+    def __init__(self, iterable: Iterable, is_exhaustible: bool= False):
         self.iterable = iterable
         self.is_exhaustible = is_exhaustible
 
@@ -478,7 +478,7 @@ class DomainFromIterable(Domain):
 
 
 class DomainFromGeneratorFun(Domain):
-    def __init__(self, fun: Callable, is_exhaustible: bool):
+    def __init__(self, fun: Callable, is_exhaustible: bool= False):
         self.fun = fun
         self.is_exhaustible = is_exhaustible
 

@@ -18,3 +18,9 @@ De los modulos domain y quantifier
 
 # integrar con pytest
 que el forall se transforme en un test parametrizado
+
+# repetir propiedad que fallo
+  - hay que guardar en un fichero la lista de propiedades que fallaron en la última ejecución
+  - ¿ se guardaría en el directorio donde se llama ?
+  - el módulo random no permite obtener la semilla que se está usando en cada momento. Hay que
+    guardar el resultado de `random.get_state()`

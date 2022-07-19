@@ -162,7 +162,8 @@ class Predicate(QCProperty):
         return str(self.pred.__name__)
 
     def get_source(self) -> str:
-        return inspect.getsource(self.pred)
+        source, line = inspect.getsourcelines(self.pred)
+        return line, "".join(source)
     
 
 #---------------------------------------------------------------------------
@@ -212,7 +213,7 @@ class ForAll(QCProperty):
 
     def get_source(self) -> str:
         return self.qcproperty.get_source()
-    
+
         
 class Exists(QCProperty):
     def __init__(self,
