@@ -234,6 +234,7 @@ class HypothesisRunner:
     def __init__(self):
         self.n_properties = 0
         self.n_falsifying_examples = 0
+        self.n_errors = 0
         self.elapsed_total = 0
 
     def wants_to_iter_dir(self, dir: Path) -> bool:
@@ -256,11 +257,16 @@ class HypothesisRunner:
             with redirect_stdout(capture):
                 test()
             stop_time = time.perf_counter()
+            console.print("[green]PASSED[/green]")
         except AssertionError:
             stop_time = time.perf_counter()
             self.n_falsifying_examples += 1
             console.print_exception()
             console.print(Panel(capture.getvalue(), title= "", expand= False))
+        except:
+            stop_time = time.perf_counter()
+            self.n_errors += 1
+            console.print_exception()
         e_time = stop_time - start_time
         self.elapsed_total += e_time
         console.line()
@@ -275,6 +281,7 @@ class HypothesisRunner:
                     (
                         f"properties checked: {self.n_properties} [progress.elapsed]({delta})[/]",
                         f"total number of falsifying examples found: {self.n_falsifying_examples}",
+                        *([f"total number of buggy properties: {self.n_errors}"] if self.n_errors > 0 else []),
                     )
                 ),
                 title= "[b]Hypothesis[/b]"
@@ -303,17 +310,6 @@ class PyPbtRunner:
 
     def do_test(self, test: Any, console: Console) -> None:
         prop = test
-        # try:
-        #     # TODO: Truncate after n lines of predicate
-        #     line, source = prop.get_source()
-        #     s = Syntax(
-        #         code= source.strip(),
-        #         lexer= 'python',
-        #         line_numbers= True,
-        #         start_line= line
-        #     )
-        # except OSError:
-        #     s = Syntax(code= str(prop), lexer= 'python')
         console.print(code_panel(prop))
         self.n_properties += 1
         with spinner_progress() as progress:
@@ -325,8 +321,10 @@ class PyPbtRunner:
                 else:
                     progress.stop()
                     self.n_counterexamples += 1
+                    # TODO: no distinguimos contraejemplos de bugs
+                    # (excepciones) en la propiedad
                     if result.exc is not None:
-                        console.print(Traceback.from_exception(result.exc))
+                        console.print(traceback_from_exception(result.exc))
                     console.print(env_panel(result.env, title= " counterexample "))
                     n_tests = f"{i} tests" if i>1 else "1 test"
                     msg = f"[red]FAILED[/red] after {n_tests}"
@@ -334,7 +332,7 @@ class PyPbtRunner:
             else:
                 progress.stop()
                 n_tests = f"{i} tests" if i>1 else "1 test"
-                msg = f"Passed {n_tests}"
+                msg = f"[green]PASSED[/green] {n_tests}"
             elapsed = progress.tasks[task].elapsed
             delta = timedelta(seconds= elapsed)
             console.print(f"{msg} [progress.elapsed]({delta})[/]")
