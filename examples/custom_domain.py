@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 
 from __future__ import annotations
+from fractions import Fraction
+from itertools import islice
+from typing import Iterator
 
-import mimesis
 
 from pypbt import domains
 
-class ProgrammingLanguage(domains.Domain):
-    def __iter__(self) -> Iterator:
-        provider = mimesis.Development()
+
+class FractionsDom(domains.Domain[Fraction]):
+    def __iter__(self) -> Iterator[Fraction]:
+        it = iter(domains.Int())
         while True:
-            yield provider.programming_language()
+            yield Fraction(next(it), next(it))
 
     def __str__(self) -> str:
-        return "ProgrammingLanguage()"
-
-
-def print_n_samples(dom: domains.Domain, n:int = 10) -> None:
-    for sample in domains.take(n, dom):
-        print(sample)
+        return f"{domains.D}:Fraction()"
+    
 
 if __name__ == "__main__":
-    dom = ProgrammingLanguage()
+    dom = FractionsDom()
     n_samples = 20
-    print(f"Showing {n_samples} samples from domain {dom}")
-    print_n_samples(dom, n_samples)
+    print(f"Showing {n_samples} samples from domain: {dom}")
+    for item in islice(dom, n_samples):
+        print(item)
 
