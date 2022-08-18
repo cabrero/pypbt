@@ -5,13 +5,17 @@ from hypothesis.strategies import text, integers
 
 from pypbt import domains
 from pypbt.quantifiers import forall
-
+from pypbt.runner.runners import test
 
 # --------------------------------------------------------------------------------------
 # PyPBT
 # --------------------------------------------------------------------------------------
 @forall(x= filter(lambda x: x<20, domains.Int()))
 def prop_superstupid(x):
+    # Nonsense example
+    # The predicate function is more than 4 lines long
+    #
+    #
     return x > 4
 
 
@@ -76,3 +80,23 @@ def test_simple(s):
 @given(integers(), integers())
 def test_ints_are_commutative(x, y):
     assert x + y == y + x
+
+
+# --------------------------------------------------------------------------------------
+# EBT
+# --------------------------------------------------------------------------------------
+@test("upper works as expected")
+def test_upper_works():
+    assert 'FOO'.isupper()
+    assert 'Foo'.isupper()
+
+    
+@test("upper works as expected v2")
+def test_upper_works_2():
+    assert 'FOO'.isupper(), "FOO is not upper"
+    assert 'Foo'.isupper(), "Foo is not upper"
+
+
+@test("test passes")
+def test_naive():
+    assert True

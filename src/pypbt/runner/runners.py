@@ -25,7 +25,7 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from pypbt import PyPBT, domains
-from pypbt.quantifiers import is_qcproperty
+from pypbt.quantifiers import CounterExample, is_qcproperty, PredicateError
 
 
 IGNORE = (
@@ -36,22 +36,38 @@ IGNORE = (
 Candidate = object
 
 
-def code_panel(fun: Callable, title:str= "", title_align:str= 'left') -> Panel:
+def code_panel(
+        fun: Callable,
+        title: str= "",
+        title_align: str= 'left',
+        truncate: bool= True,
+) -> Panel:
     try:
-        # TODO: Truncate after n lines of predicate
-        if hasattr(fun, 'get_source'):
-            line, source = fun.get_source()
-        else:
-            source_lines, line = inspect.getsourcelines(fun)
+        source_lines, line_no = inspect.getsourcelines(fun)
+    except OSError:
+        source_lines = None
+    if source_lines is not None:
+        if not truncate:
             source = "".join(source_lines)
+        else:
+            i = 0
+            for line in source_lines:
+                if line.strip().startswith("def "):
+                    break
+                i += 1
+            if len(source_lines) < i + 4:
+                source = "".join(source_lines)
+            else:
+                source = "".join(source_lines[:i+4]) + "···"
 
+        # TODO: Truncate after n lines of predicate
         s = Syntax(
             code= source.strip(),
             lexer= 'python',
             line_numbers= True,
-            start_line= line
+            start_line= line_no
         )
-    except OSError:
+    else:
         s = Syntax(code= str(fun), lexer= 'python')
     return Panel(s, box= box.ROUNDED, title= title, title_align= title_align)
 
@@ -80,6 +96,11 @@ def spinner_progress(spinner:str= 'pong') -> Progress:
     )
 
 
+class ReporterMixin:
+    def _report_summary(self, *lines: Sequence[str], console: Console, title: str) -> None:
+        console.print(Panel("\n".join(lines), title= title))
+
+
 # --------------------------------------------------------------------------------------
 # Unittest
 # --------------------------------------------------------------------------------------
@@ -105,42 +126,46 @@ class UnittestResult(unittest.TestResult):
         self.tests_run += 1
         self.status.update(status= f"  {self.get_description(test)} ...")
 
-    # def addSubTest(self, test, subtest, err):
-    #     if err is not None:
-    #         if self.showAll:
-    #             if issubclass(err[0], subtest.failureException):
-    #                 self._write_status(subtest, "FAIL")
-    #             else:
-    #                 self._write_status(subtest, "ERROR")
-    #         elif self.dots:
-    #             if issubclass(err[0], subtest.failureException):
-    #                 self.stream.write('F')
-    #             else:
-    #                 self.stream.write('E')
-    #             self.stream.flush()
-    #     super(TextTestResult, self).addSubTest(test, subtest, err)
-
+    def addSubTest(self, test, subtest, err):
+        super().addSubTest(test, subtest, err)
+        if err is None:
+            self.n_success += 1
+        else:
+            if issubclass(err[0], subtest.failureException):
+                exctype, value, tb = err
+                # Sólo queremos el último frame. Es donde está el assert que falló.
+                while tb.tb_next is not None:
+                    tb = tb.tb_next
+                tb = Traceback.from_exception(exctype, value, tb, show_locals= True)
+                self.console.print(tb)
+                self.console.print(f"{self.get_description(test)} [red]FAILED[/red]")
+            else:
+                exctype, value, tb = err
+                tb = Traceback.from_exception(exctype, value, tb, show_locals= True)
+                self.console.print(tb)
+                self.console.print(f"{self.get_description(test)} [red]ERROR[/red]")
+   
     def addSuccess(self, test):
         self.n_success += 1
         self.console.print(f"{self.get_description(test)} [green]PASSED[/green]")
 
     def addError(self, test, err):
         super().addError(test, err)
-        self.console.print(f"{self.get_description(test)} [red]ERROR[/red]")
         exctype, value, tb = err
         tb = Traceback.from_exception(exctype, value, tb, show_locals= True)
         self.console.print(tb)
+        self.console.print(f"{self.get_description(test)} [red]ERROR[/red]")
 
 
     def addFailure(self, test, err):
         super().addFailure(test, err)
-        self.console.print(f"{self.get_description(test)} [red]FAILED[/red]")
         exctype, value, tb = err
         # Sólo queremos el último frame. Es donde está el assert que falló.
         while tb.tb_next is not None:
             tb = tb.tb_next
         tb = Traceback.from_exception(exctype, value, tb, show_locals= True)
         self.console.print(tb)
+        self.console.print(f"{self.get_description(test)} [red]FAILED[/red]")
 
     def addSkip(self, test, reason):
         super().addSkip(test, reason)
@@ -165,7 +190,7 @@ class UnittestResult(unittest.TestResult):
         )
 
         
-class UnittestRunner:
+class UnittestRunner(ReporterMixin):
     def __init__(self):
         self.tests_run = 0
         self.n_success = 0
@@ -205,32 +230,27 @@ class UnittestRunner:
         console.rule(title= "")
         console.line()
 
-    def summary(self, console: Console) -> None:
+    def report_summary(self, console: Console) -> None:
         if self.tests_run == 0:
             return
         delta = timedelta(seconds= self.elapsed_total)
-        console.print(
-            Panel(
-                "\n".join(
-                    (
-                        f"tests run: {self.tests_run} [progress.elapsed]({delta})[/]",
-                        f"success: {self.n_success}",
-                        f"failures: {self.n_failures}",
-                        *([f"errors: {self.n_errors}"] if self.n_errors > 0 else []),
-                        *([f"skipped: {self.n_skipped}"] if self.n_skipped > 0 else []),
-                        *([f"expected failures: {self.n_expected_failures}"] if self.n_expected_failures > 0 else []),
-                        *([f"unexpected successes: {self.n_unexpected_successes}"] if self.n_unexpected_successes > 0 else []),
-                    ),
-                ),
-                title= f"[b]unittest[/b]",
-            )
+        self._report_summary(
+            f"tests run: {self.tests_run} [progress.elapsed]({delta})[/]",
+            f"success: {self.n_success}",
+            f"failures: {self.n_failures}",
+            *([f"errors: {self.n_errors}"] if self.n_errors > 0 else []),
+            *([f"skipped: {self.n_skipped}"] if self.n_skipped > 0 else []),
+            *([f"expected failures: {self.n_expected_failures}"] if self.n_expected_failures > 0 else []),
+            *([f"unexpected successes: {self.n_unexpected_successes}"] if self.n_unexpected_successes > 0 else []),
+            title= f"[b]unittest[/b]",
+            console= console,
         )
         
 
 # --------------------------------------------------------------------------------------
 # Hypothesis
 # --------------------------------------------------------------------------------------
-class HypothesisRunner:
+class HypothesisRunner(ReporterMixin):
     def __init__(self):
         self.n_properties = 0
         self.n_falsifying_examples = 0
@@ -271,32 +291,28 @@ class HypothesisRunner:
         self.elapsed_total += e_time
         console.line()
         
-    def summary(self, console: Console) -> None:
+    def report_summary(self, console: Console) -> None:
         if self.n_properties == 0:
             return
         delta = timedelta(seconds= self.elapsed_total)
-        console.print(
-            Panel(
-                "\n".join(
-                    (
-                        f"properties checked: {self.n_properties} [progress.elapsed]({delta})[/]",
-                        f"total number of falsifying examples found: {self.n_falsifying_examples}",
-                        *([f"total number of buggy properties: {self.n_errors}"] if self.n_errors > 0 else []),
-                    )
-                ),
-                title= "[b]Hypothesis[/b]"
-            )
+        self._report_summary(
+            f"properties checked: {self.n_properties} [progress.elapsed]({delta})[/]",
+            f"total number of falsifying examples found: {self.n_falsifying_examples}",
+            *([f"total number of buggy properties: {self.n_errors}"] if self.n_errors > 0 else []),
+            title= "[b]Hypothesis[/b]",
+            console= console,
         )
 
         
 # --------------------------------------------------------------------------------------
 # PyPBT
 # --------------------------------------------------------------------------------------
-class PyPbtRunner:
+class PyPbtRunner(ReporterMixin):
     def __init__(self):
         self.n_properties = 0
         self.n_samples = 0
         self.n_counterexamples = 0
+        self.n_errors = 0
         self.elapsed_total = 0
         
     def wants_to_iter_dir(self, dir: Path) -> bool:
@@ -310,7 +326,7 @@ class PyPbtRunner:
 
     def do_test(self, test: Any, console: Console) -> None:
         prop = test
-        console.print(code_panel(prop))
+        console.print(code_panel(prop.get_predicate()))
         self.n_properties += 1
         with spinner_progress() as progress:
             task = progress.add_task("Testing...", total= None)
@@ -318,17 +334,23 @@ class PyPbtRunner:
                 if result:
                     progress.advance(task)
                     self.n_samples += 1
-                else:
+                elif isinstance(result, CounterExample):
                     progress.stop()
                     self.n_counterexamples += 1
-                    # TODO: no distinguimos contraejemplos de bugs
-                    # (excepciones) en la propiedad
-                    if result.exc is not None:
-                        console.print(traceback_from_exception(result.exc))
                     console.print(env_panel(result.env, title= " counterexample "))
                     n_tests = f"{i} tests" if i>1 else "1 test"
                     msg = f"[red]FAILED[/red] after {n_tests}"
                     break
+                elif isinstance(result, PredicateError):
+                    progress.stop()
+                    self.n_errors += 1
+                    console.print(traceback_from_exception(result.exc))
+                    console.print(env_panel(result.env, title= " counterexample "))
+                    n_tests = f"{i} tests" if i>1 else "1 test"
+                    msg = f"[red]FAILED[/red] after {n_tests}"
+                    break
+                else:
+                    raise RuntimeError("fUnkown {result=}")
             else:
                 progress.stop()
                 n_tests = f"{i} tests" if i>1 else "1 test"
@@ -339,23 +361,98 @@ class PyPbtRunner:
             self.elapsed_total += elapsed
             console.line(2)
 
-    def summary(self, console: Console) -> None:
+    def report_summary(self, console: Console) -> None:
         if self.n_properties == 0:
             return
         delta = timedelta(seconds= self.elapsed_total)
-        console.print(
-            Panel(
-                "\n".join(
-                    (
-                        f"properties checked: {self.n_properties} [progress.elapsed]({delta})[/]",
-                        f"total number of samples checked: {self.n_samples}",
-                        f"total number of counterexamples found: {self.n_counterexamples}",
-                    ),
-                ),
-                title= f"[b]{PyPBT}[/b]",
-            )
+        self._report_summary(
+            f"properties checked: {self.n_properties} [progress.elapsed]({delta})[/]",
+            f"total number of samples checked: {self.n_samples}",
+            f"total number of counterexamples found: {self.n_counterexamples}",
+            *([f"number of errors: {self.n_errors}"] if self.n_errors > 0 else []),
+            title= f"[b]{PyPBT}[/b]",
+            console= console,
         )
+
+
+# --------------------------------------------------------------------------------------
+# EBT
+# --------------------------------------------------------------------------------------
+TEST_ATTR = '__test_title__'
+
+
+def test(title: str) -> Callable[[Callable],Callable]:
+    def decorator(fun: Callable) -> Callable:
+        setattr(fun, TEST_ATTR, title)
+        return fun
+    return decorator
+
+    
+class KissEBTRunner(ReporterMixin):
+    def __init__(self):
+        self.tests_run = 0
+        self.n_success = 0
+        self.n_failures = 0
+        self.n_errors = 0
+        self.elapsed_total = 0
+
+    def want_to_iter_dir(self, dir: Path) -> bool:
+        return True
+
+    def wants_to_run_file(self, file: Path) -> bool:
+        return file.suffix == ".py"
+
+    def will_do(self, test: Any) -> bool:
+        return hasattr(test, TEST_ATTR)
+
+    def do_test(self, test: Any, console: Console) -> None:
+        title = getattr(test, TEST_ATTR)
+        with console.status(f"{title} ..."):
+            start_time = time.perf_counter()
+            try:
+                test()
+            except Exception as e:
+                stop_time = time.perf_counter()
+                exception = e
+            else:
+                stop_time = time.perf_counter()
+                exception = None
+        self.tests_run += 1
+        e_time = stop_time - start_time
+        self.elapsed_total += e_time
+        delta = timedelta(seconds= e_time)
+        if exception is None:
+            self.n_success += 1
+            console.print(f"[b]{title}[/b] [green]PASSED[/green] [progress.elapsed]({delta})[/]")
+        elif isinstance(exception, AssertionError):
+            self.n_failures += 1
+            console.print(traceback_from_exception(exception))
+            console.print(f"[b]{title}[/b] [red]FAILED[/red] [progress.elapsed]({delta})[/]")
+        else:
+            self.n_errors += 1
+            console.print_exception()
+            console.print(
+                f"[b]{title}[/b] [red]ERROR \"Unexpected exception\"[/red]"
+                f" [progress.elapsed]({delta})[/]")
+
         
+    def report_summary(self, console: Console) -> None:
+        if self.tests_run == 0:
+            return
+        delta = timedelta(seconds= self.elapsed_total)
+        self._report_summary(
+            f"tests run: {self.tests_run} [progress.elapsed]({delta})[/]",
+            f"success: {self.n_success}",
+            f"failures: {self.n_failures}",
+            *([f"errors: {self.n_errors}"] if self.n_errors > 0 else []),
+            title= f"[b]EBT[/b]",
+            console= console,
+        )
+
+
+# --------------------------------------------------------------------------------------
+# Runner
+# --------------------------------------------------------------------------------------
 
 def collect_objs_from_file(file: Path, console: Console) -> Iterator:
     parent = str(file.parent)
@@ -431,6 +528,7 @@ def main():
         PyPbtRunner(),
         HypothesisRunner(),
         UnittestRunner(),
+        KissEBTRunner(),
     )
     seed = domains.seed
     console = Console()
@@ -451,7 +549,7 @@ def main():
         )
     )
     for candidate in CANDIDATES:
-        candidate.summary(console)
+        candidate.report_summary(console)
         
             
 if __name__ == '__main__':

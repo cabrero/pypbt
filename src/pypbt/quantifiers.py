@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from itertools import islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
@@ -118,25 +117,26 @@ def desugar_var_value(arg: QArg) -> Domain:
 #---------------------------------------------------------------------------
 # 
 #---------------------------------------------------------------------------
-class Left:
-    def __init__(self, env, exc= None):
-        # TODO: e puede ser Env o [Env,Exception]
-        #       regularizar esto
-        self.env = env
-        self.exc = exc
+class CounterExample(NamedTuple):
+    env: Env
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return False
 
-    def __str__(self):
-        if self.exc is None:
-            return f"Left({self.env})"
-        else:
-            return f"Left({self.env}, {self.exc})"
+    
+class PredicateError(NamedTuple):
+    exc: Exception
+    env: Env
+
+    def __bool__(self) -> bool:
+        return False
     
     
-# -- Either bool
-CheckResult = Union[Left, Literal[True]]
+CheckResult = Union[
+    Literal[True],
+    CounterExample,
+    PredicateError,
+]
 
 
 #---------------------------------------------------------------------------
@@ -153,17 +153,16 @@ class Predicate(QCProperty):
         
     def __call__(self, /, env: Env) -> Iterator[CheckResult]:
         try:
-            result = self.pred(**env) or Left(env)
+            result = self.pred(**env) or CounterExample(env)
         except Exception as e:
-            result = Left(env= env, exc= e)
+            result = PredicateError(exc= e, env= env)
         yield result
 
     def __str__(self):
         return str(self.pred.__name__)
 
-    def get_source(self) -> str:
-        source, line = inspect.getsourcelines(self.pred)
-        return line, "".join(source)
+    def get_predicate(self) -> PredicateFun:
+        return self.pred
     
 
 #---------------------------------------------------------------------------
@@ -211,8 +210,8 @@ class ForAll(QCProperty):
             f"{textwrap.indent(str(self.qcproperty), '  ')}"
         )
 
-    def get_source(self) -> str:
-        return self.qcproperty.get_source()
+    def get_predicate(self) -> str:
+        return self.qcproperty.get_predicate()
 
         
 class Exists(QCProperty):
@@ -245,15 +244,19 @@ class Exists(QCProperty):
                             f"in non exhaustive domain: {domain_obj}")
         
         for sample in domain_obj.exhaustible:
-            if any(prop(env= {**env, quantified_var: sample})):
-                yield True
-                return
-                
-        yield Left(env= env)
-        return
+            env = {**env, quantified_var: sample}
+            for result in prop(env= env):
+                if result:
+                    yield True
+                    break
+                elif isinstance(result, PredicateError):
+                    yield result
+                    break
+            else:
+                yield CounterExample(env)
 
-    def get_source(self) -> str:
-        return self.qcproperty.get_source()
+    def get_predicate(self) -> str:
+        return self.qcproperty.get_predicate()
     
     def __str__(self):
         return (
