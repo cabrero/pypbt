@@ -12,6 +12,8 @@ from pypbt import domains
 class FractionsDom(domains.Domain[Fraction]):
     def __iter__(self) -> Iterator[Fraction]:
         it = iter(domains.Int())
+        # Another alternative would be to use two domains
+        # The difference will be given by the heuristics of the domain generator
         while True:
             yield Fraction(next(it), next(it))
 
