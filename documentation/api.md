@@ -2,8 +2,8 @@
 
 ## Quantifier module
 
-::: pypbt.quantifier
+::: pypbt.quantifiers
 
 ## Domain module
 
-::: pypbt.domain
+::: pypbt.domains
