@@ -1,3 +1,11 @@
+# Soporte para el ejemplo de generar cadenas de un conjunto dado de caracteres
+
+# BUG falta import Sequence en domain.py y faltan pruebas donde se cubran las
+  líneas que lo usan
+
+# BUG PyObject, cuando el número de samples es mayor que el tamaño de un
+  dominio exahutible
+
 # Completar documentación
   - README.md
   - HOW_TO_CONTRIBUTE
