@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Protocol,
     Union,
+    Sequence,
     Sized,
     TypeVar
 )
