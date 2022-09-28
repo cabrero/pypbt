@@ -267,9 +267,9 @@ class DomainUnion(Domain):
             else:
                 raise RecursionError(f"max recursion at {self}")
 
-    # TODO: ¿ Cómo detectar si es suficientemente finito ?  ¿ La unión
-    #       de dos dominios suficientemente finitos puede dar lugar a
-    #       uno no suficientemente finito ?
+    # TODO: ¿ Cómo detectar si es exhaustible ?  ¿ La unión de dos
+    #       dominios exhaustibles puede dar lugar a uno no exhaustible
+    #       ?
     
     def __str__(self):
         return " | ".join(map(str, self.domains))

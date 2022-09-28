@@ -196,7 +196,8 @@ class ForAll(QCProperty):
         domain_obj = reduce_expr(self.domain_obj, env)
         prop = self.qcproperty
 
-        # Si el dominio está marcado como finito recorremos el dominio entero
+        # Si el dominio está marcado como exhaustible recorremos el
+        # dominio entero
         if domain_obj.is_exhaustible:
             domain_samples = domain_obj.exhaustible
         else:
