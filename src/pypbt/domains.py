@@ -74,7 +74,8 @@ def domain_expr(arg: DomainCoercible, is_exhaustible: Optional[bool]= None) -> D
       the domain as exhaustible when neccessary.
 
     - If arg is a generator function, equivalent to iterable, taking
-      the elements from the generator returned by the function.
+      the elements from the generator returned by the function. The
+      programmer may mark the domain as exhaustible when neccessary.
 
     - If arg is any other python object, returns a Domain containing
       only one element: arg.
@@ -84,10 +85,10 @@ def domain_expr(arg: DomainCoercible, is_exhaustible: Optional[bool]= None) -> D
         if is_exhaustible is not None:
             raise TypeError("cannot change the attribute is_exhaustible of a domain")
         return arg
-    elif isinstance(arg, Iterable):
-        return DomainFromIterable(arg, is_exhaustible= is_exhaustible or False)
     elif inspect.isgeneratorfunction(arg):
-        return DomainFromGeneratorFun(arg,  is_exhaustible= is_exhaustible or False)
+        return DomainFromGeneratorFun(arg, is_exhaustible= is_exhaustible)
+    elif isinstance(arg, Iterable):
+        return DomainFromIterable(arg, is_exhaustible= is_exhaustible)
     else:
         return DomainSingleton(arg)
     # TODO: Otras formas de declarar un dominio, p.e.
@@ -449,8 +450,14 @@ class String(Domain):
 # Domains of aggregated objects
 # --------------------------------------------------------------------------------------
 class DomainFromIterable(Domain):
-    def __init__(self, iterable: Iterable, is_exhaustible: bool= False):
+    def __init__(self, iterable: Iterable, is_exhaustible: Optional[bool]):
         self.iterable = iterable
+        if is_exhaustible is None:
+            # Por defecto, asumimos que un iterable es
+            # exhaustible. Típicamente será una lista, tupla o
+            # similar. Y un generator no es exahustible. Típicamente
+            # serán un filter o map sobre un dominio.
+            is_exhaustible = not inspect.isgenerator(iterable)
         self.is_exhaustible = is_exhaustible
 
     def __iter__(self) -> Iterator:
@@ -478,8 +485,12 @@ class DomainFromIterable(Domain):
 
 
 class DomainFromGeneratorFun(Domain):
-    def __init__(self, fun: Callable, is_exhaustible: bool= False):
+    def __init__(self, fun: Callable, is_exhaustible: Optional[bool]):
         self.fun = fun
+        if is_exhaustible is None:
+            # Por defecto, asumimos que una función generator no es
+            # exhaustible.
+            is_exhaustible = False
         self.is_exhaustible = is_exhaustible
 
     def __iter__(self) -> Iterator:
