@@ -2,7 +2,7 @@ from typing import Iterable
 
 
 from pypbt import domains
-from pypbt.domains import domain_expr
+from pypbt.domains import domain_expr, exhaustible
 from pypbt.quantifiers import exists, forall
 
 
@@ -17,7 +17,7 @@ def prop_superstupid_2(x):
 
 
 @forall(xs= domains.List(domains.Int(), min_len= 4, max_len= 4))
-@forall(x= lambda xs: domain_expr(xs, is_exhaustible= True))
+@forall(x= lambda xs: exhaustible(xs))
 def prop_list_and_element_from_it(xs, x):
     return x in xs
 
@@ -44,12 +44,12 @@ def prop_la_suma_es_conmutativa(x, y):
 
 
 @forall(x= domains.Int())
-@exists(y= domain_expr(range(1, 9), is_exhaustible= True))
+@exists(y= exhaustible(range(1, 9)))
 def prop_stupid(x, y):
     return x % y > 1
 
 
-@exists(x= domain_expr(range(10), is_exhaustible= True))
+@exists(x= exhaustible(range(10)))
 def prop_even_more_stupid(x):
     return x > 7
 

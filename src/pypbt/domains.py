@@ -61,42 +61,50 @@ To explicitly coerce it, a.k.a as desugaring it, you should use the function
 DomainCoercible = Any
 
 
-def domain_expr(arg: DomainCoercible, is_exhaustible: Optional[bool]= None) -> Domain:
+def domain_expr(expr: DomainCoercible, is_exhaustible: Optional[bool]= None) -> Domain:
     """Desugar domain expressions
 
     Converts any expression declaring a domain into a Domain object.
     The options are:
 
-    - If arg is already a Domain object, returns it. Parameters are
+    - If expr is already a Domain object, returns it. Parameters are
       not allowed.
 
-    - If arg is any python iterable, returns a Domain object whose
+    - If expr is any python iterable, returns a Domain object whose
       elements are the items in the iterable. The programmer may mark
       the domain as exhaustible when neccessary.
 
-    - If arg is a generator function, equivalent to iterable, taking
+    - If expr is a generator function, equivalent to iterable, taking
       the elements from the generator returned by the function. The
       programmer may mark the domain as exhaustible when neccessary.
 
-    - If arg is any other python object, returns a Domain containing
-      only one element: arg.
+    - If expr is any other python object, returns a Domain containing
+      only one element: expr.
 
     """
-    if is_domain(arg):
+    if is_domain(expr):
         if is_exhaustible is not None:
             raise TypeError("cannot change the attribute is_exhaustible of a domain")
-        return arg
-    elif inspect.isgeneratorfunction(arg):
-        return DomainFromGeneratorFun(arg, is_exhaustible= is_exhaustible)
-    elif isinstance(arg, Iterable):
-        return DomainFromIterable(arg, is_exhaustible= is_exhaustible)
+        return expr
+    elif inspect.isgeneratorfunction(expr):
+        return DomainFromGeneratorFun(expr, is_exhaustible= is_exhaustible)
+    elif isinstance(expr, Iterable):
+        return DomainFromIterable(expr, is_exhaustible= is_exhaustible)
     else:
-        return DomainSingleton(arg)
+        return DomainSingleton(expr)
     # TODO: Otras formas de declarar un dominio, p.e.
     #    - tipos básicos: int, str, ...
     #    - función generadora
 
-            
+
+def exhaustible(expr: DomainCoercible) -> Domain:
+    return domain_expr(expr, is_exhaustible= True)
+
+
+def non_exhaustible(expr: DomainCoercible) -> Domain:
+    return domain_expr(expr, is_exhaustible= False)
+
+
 # --------------------------------------------------------------------------------------
 # Domain base class
 # --------------------------------------------------------------------------------------
