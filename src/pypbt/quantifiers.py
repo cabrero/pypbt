@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from itertools import islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
