@@ -83,7 +83,12 @@ def evens_sum_is_even(l):
 
 from fractions import Fraction
 
-@forall(fraction= domains.DomainPyObject(Fraction, numerator= domains.Int(), denominator= domains.Int(min_value= 1)))
+@forall(
+    fraction= domains.DomainPyObject(
+        Fraction, numerator= domains.Int(),
+        denominator= domains.Int(min_value= 1)
+    )
+)
 def prop_broken_1(fraction):
     print(fraction)
     return fraction.denominator != 0
@@ -97,5 +102,19 @@ def prop_broken_1(fraction):
     )
 )
 def prop_broken_2(fraction):
+    print(fraction)
+    return fraction.denominator != 0
+
+
+@forall(numerator= domains.Int(), denominator= domains.Int(min_value= 1))
+def prop_broken_3(numerator, denominator):
+    fraction = Fraction(numerator, denominator)
+    print(fraction)
+    return fraction.denominator != 0
+
+
+@forall(numerator= domains.Int(), denominator= (3, 8))
+def prop_broken_4(numerator, denominator):
+    fraction = Fraction(numerator, denominator)
     print(fraction)
     return fraction.denominator != 0
