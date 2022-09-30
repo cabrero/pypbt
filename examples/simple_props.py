@@ -107,6 +107,20 @@ def prop_broken_2(fraction):
     return fraction.denominator != 0
 
 
+@forall(numerator= domains.Int(), denominator= domains.Int(min_value= 1))
+def prop_broken_3(numerator, denominator):
+    fraction = Fraction(numerator, denominator)
+    print(fraction)
+    return fraction.denominator != 0
+
+
+@forall(numerator= domains.Int(), denominator= (3, 8))
+def prop_broken_4(numerator, denominator):
+    fraction = Fraction(numerator, denominator)
+    print(fraction)
+    return fraction.denominator != 0
+
+
 @forall(s= domains.String(max_len= 4))
 def prop_str_1(s):
     return len(s) < 5
@@ -115,3 +129,4 @@ def prop_str_1(s):
 @forall(s= domains.String(alphabet= exhaustible(['a', 'b']), max_len= 10))
 def prop_str_2(s):
     return all(c in ['a', 'b'] for c in s)
+

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from itertools import islice
+from itertools import cycle, islice
 import textwrap
 from typing import Callable, get_args, Literal, NamedTuple, Union
 
@@ -176,35 +176,56 @@ class Predicate(QCProperty):
 # Todas las propiedades se "ejecutan" en un `Environment` que contiene
 # las variables ligadas por cada uno de los cuantificadores.
 
-
 class ForAll(QCProperty):
     def __init__(self,
-                 quantified_var: VarName,
-                 domain_obj: Domain,
+                 quantifications: dict[VarName, Domain],
                  qcproperty: QCProperty,
                  n_samples: int):
-        self.quantified_var = quantified_var
-        self.domain_obj = domain_obj
+        self.quantifications = quantifications
         self.qcproperty = qcproperty
         self.n_samples = n_samples
 
     def __call__(self, /, env: Env) -> Iterator[CheckResult]:
-        quantified_var = self.quantified_var
-        if quantified_var in env:
-            raise TypeError(f"Variable {quantified_var} is shadowed in {self}")
+        # forall(x= ..., y= ...) funciona como forall(x, y= ..., ...)
+        # Es decir funciona como una suma. Igual que haria en
+        # forall(t= Tuple(...,...) x,y= t
+        #
+        # Por otra parte el producto, a.k.a. producto cartesiano sería
+        # forall(x= ...)
+        #     forall(y= ...)
+        
+        quantifications = self.quantifications
+        if any(wrong_name := var in env for var in quantifications.keys()):
+            raise TypeError(f"Variable {wrong_name} is shadowed in {self}")
 
-        domain_obj = reduce_expr(self.domain_obj, env)
         prop = self.qcproperty
 
-        # Si el dominio está marcado como exhaustible recorremos el
-        # dominio entero
-        if domain_obj.is_exhaustible:
-            domain_samples = domain_obj.exhaustible
+        # Si tenemos una única variable cuantificada y el dominio está
+        # marcado como exhaustible recorremos el dominio entero. Pero si
+        # tenemos una suma, aunque todos los dominios sean
+        # exahustibles, no podemos hacer el recorrido exhaustivo
+        # porque la cardinalidad de los dominios puede no coincidir.
+        # Tampoco parece que tenga sentido ninguna forma de
+        # combinarlos. El número de samples es el mismo para todos los
+        # dominios.
+        if len(quantifications) == 1:
+            var, dom = next(iter(quantifications.items()))
+            dom = reduce_expr(dom, env)
+            if dom.is_exhaustible:
+                samples = dom.exhaustible
+            else:
+                samples = islice(dom, self.n_samples)
+            for sample in samples:
+                yield from prop(env= {**env, var: sample})
         else:
-            domain_samples = islice(domain_obj, self.n_samples)
-            
-        for sample in domain_samples:
-            yield from prop(env= {**env, quantified_var: sample})
+            iterators = { var: cycle(reduce_expr(domain_obj, env))
+                          for var, domain_obj in quantifications.items() }
+            samples = (
+                {var: next(it) for var, it in iterators.items()}
+                for _ in range(self.n_samples)
+            )        
+            for kwargs in samples:
+                yield from prop(env= {**env, **kwargs})
 
     def __str__(self) -> str:
         return (
@@ -215,7 +236,7 @@ class ForAll(QCProperty):
     def get_predicate(self) -> str:
         return self.qcproperty.get_predicate()
 
-        
+                
 class Exists(QCProperty):
     def __init__(self,
                  quantified_var: VarName,
@@ -289,17 +310,11 @@ def forall(n_samples: int= DEFAULT_N_SAMPLES, **binds):
     ForAll
         An object implementing the property as a callable.
     """
-    if len(binds) != 1:
-        # TODO: ¿ queremos implementar forall(x= ..., y= ...) como
-        #         forall(x,y= ...,...) ?
-        #       Es decir forall(t= Tuple(...,...) x,y= t
-        raise TypeError(f"Must bind just one variable, but {len(binds)} binded")
-    var, obj = next(iter(binds.items()))
-    
+    quantifications = {var: desugar_var_value(obj) for var, obj in binds.items()}
+
     def factory(arg):
         return ForAll(
-            quantified_var= var,
-            domain_obj= desugar_var_value(obj),
+            quantifications= quantifications,
             qcproperty= qcproperty(arg),
             n_samples= n_samples
         )
