@@ -435,8 +435,17 @@ class Char(Domain):
                           
         
 class String(Domain):
-    def __init__(self, coding: str= 'utf-8', min_len: int= 0, max_len: int= 80):
-        self.coding = coding  # see Char()
+    def __init__(
+            self,
+            coding: Optional[str]= None, # see Char()
+            alphabet: Optional[Domain]= None,
+            min_len: int= 0,
+            max_len: int= 80
+    ):
+        if coding is not None and alphabet is not None:
+            raise TypeError("cannot specify both {coding=} and {alphabet=}")
+        self.coding = coding
+        self.alphabet = alphabet
         self.min_len = min_len
         self.max_len = max_len
 
@@ -446,7 +455,12 @@ class String(Domain):
         if min_len == 0:
             yield ''
             min_len = 1
-        dom_char = Char(coding= self.coding)
+        if self.alphabet is not None:
+            dom_char = self.alphabet
+        elif self.coding is not None:
+            dom_char = Char(coding= self.coding)
+        else:
+            dom_char = Char()
         while True:
             yield "".join(islice(dom_char, _random.randint(min_len, max_len)))
 
