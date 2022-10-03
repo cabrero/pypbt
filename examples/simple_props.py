@@ -130,3 +130,7 @@ def prop_str_1(s):
 def prop_str_2(s):
     return all(c in ['a', 'b'] for c in s)
 
+
+@forall(x= domains.Int(), y= domains.Int(), n_samples= 50)
+def prop_for_all_sum(x, y):
+    return x > y or y > x or x == y

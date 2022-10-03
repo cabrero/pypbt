@@ -291,7 +291,7 @@ class Exists(QCProperty):
 #---------------------------------------------------------------------------
 # Decorators
 #---------------------------------------------------------------------------
-def forall(n_samples: int= DEFAULT_N_SAMPLES, **binds):
+def forall(*, n_samples: int= DEFAULT_N_SAMPLES, **binds):
     """Decorates a predicate funcion or another decorator with a forall quantifier.
 
     Parameters
