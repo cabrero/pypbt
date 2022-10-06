@@ -476,11 +476,12 @@ class DomainFromIterable(Domain):
     def __init__(self, iterable: Iterable, is_exhaustible: Optional[bool]):
         self.iterable = iterable
         if is_exhaustible is None:
-            # Por defecto, asumimos que un iterable es
-            # exhaustible. Típicamente será una lista, tupla o
+            # Por defecto, asumimos que un iterable de tipo Sequence
+            # es exhaustible. Típicamente será una lista, tupla o
             # similar. Y un generator no es exahustible. Típicamente
-            # serán un filter o map sobre un dominio.
-            is_exhaustible = not inspect.isgenerator(iterable)
+            # serán un filter, map o expresión generadora sobre un
+            # dominio.
+            is_exhaustible = isinstance(iterable, Sequence)
         self.is_exhaustible = is_exhaustible
 
     def __iter__(self) -> Iterator:

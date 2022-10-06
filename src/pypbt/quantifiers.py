@@ -218,7 +218,7 @@ class ForAll(QCProperty):
             for sample in samples:
                 yield from prop(env= {**env, var: sample})
         else:
-            iterators = { var: cycle(reduce_expr(domain_obj, env))
+            iterators = { var: iter(reduce_expr(domain_obj, env))
                           for var, domain_obj in quantifications.items() }
             samples = (
                 {var: next(it) for var, it in iterators.items()}

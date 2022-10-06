@@ -134,3 +134,39 @@ def prop_str_2(s):
 @forall(x= domains.Int(), y= domains.Int(), n_samples= 50)
 def prop_for_all_sum(x, y):
     return x > y or y > x or x == y
+
+
+
+# Imitamos una propiedad de justbytes
+UNITS = lambda: ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+
+
+class Range:
+    def __init__(self, value, units= None):
+        self.value = value
+        self.units = units
+
+NUMBERS_DOMAIN = (
+    domains.Int() |
+    domains.DomainPyObject(
+        Fraction,
+        domains.Int(),
+        domains.Int(min_value = 1, max_value = 100)
+    )
+)
+
+SIZE_DOMAIN = domains.DomainPyObject(
+    Range,
+    NUMBERS_DOMAIN | domains.DomainPyObject(str, NUMBERS_DOMAIN),
+    UNITS()
+)
+
+#@forall(size_1= SIZE_DOMAIN,
+#        size_2= (a for a in SIZE_DOMAIN if a != Range(0)), n_samples= 500)
+@forall(size_1= SIZE_DOMAIN,
+        size_2= filter(lambda x: x != Range(0), SIZE_DOMAIN), n_samples= 500)
+def test_divmod_with_range(size_1, size_2):
+    """Test divmod with a size."""
+    #(div, rem) = divmod(size_1.magnitude, size_2.magnitude)
+    #return divmod(size_1, size_2) == (div, Range(rem))
+    return True
