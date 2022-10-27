@@ -29,7 +29,7 @@ rich = "^12.4.4"
 
 
 [tool.poetry.scripts]
-pypbt = 'pypbt.runner.runners:main'
+pypbt = 'pypbt:main'
 
 
 [tool.poetry.dev-dependencies]
@@ -38,6 +38,7 @@ mkdocs = "^1.3.0"
 mkdocs-autorefs = "^0.4.1"
 mkdocstrings-python = "^0.7.1"
 hypothesis = "^6.52.3"
+coverage = "^6.5.0"
 
 
 [build-system]
