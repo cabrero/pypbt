@@ -118,6 +118,9 @@ def desugar_var_value(arg: QArg) -> Domain:
 #---------------------------------------------------------------------------
 # 
 #---------------------------------------------------------------------------
+ok = ":ok"
+OK = Literal[ok]
+
 class CounterExample(NamedTuple):
     env: Env
 
@@ -133,11 +136,10 @@ class PredicateError(NamedTuple):
         return False
     
     
-CheckResult = Union[
-    Literal[True],
-    CounterExample,
-    PredicateError,
-]
+CheckResult = OK | CounterExample | PredicateError
+
+
+ShrinkStrategy = Literal['casanova', 'little ant']
 
 
 #---------------------------------------------------------------------------
@@ -154,7 +156,7 @@ class Predicate(QCProperty):
         
     def __call__(self, /, env: Env) -> Iterator[CheckResult]:
         try:
-            result = self.pred(**env) or CounterExample(env)
+            result = ok if self.pred(**env) else CounterExample(env)
         except Exception as e:
             result = PredicateError(exc= e, env= env)
         yield result
@@ -269,8 +271,8 @@ class Exists(QCProperty):
         for sample in domain_obj.exhaustible:
             env = {**env, quantified_var: sample}
             for result in prop(env= env):
-                if result:
-                    yield True
+                if result is ok:
+                    yield ok
                     break
                 elif isinstance(result, PredicateError):
                     yield result
@@ -280,7 +282,23 @@ class Exists(QCProperty):
 
     def get_predicate(self) -> str:
         return self.qcproperty.get_predicate()
-    
+
+    def shrink(
+            self, counterexample: CounterExample, strategry: ShrinkStrategy='casanova'
+    ) -> Iterator[CheckResult]:
+        # devuelve el resultado de todos los intentos de shrinking
+
+        # shrinker : Callable[[CounterExample, str], Generator[Env, CheckResult]]
+        #
+        # Recibe un contraejemplo y el nombre de la variable a
+        # shrinkear.
+        #
+        # Genera Env con distintos objetos del dominio de la variable
+        # ligados a la variable. En cada iteración (después del
+        # yield), recibe el resultado de comprobar la propiedad con el
+        # entorno.
+        pass
+        
     def __str__(self):
         return (
             f"Exists {self.quantified_var} in {self.domain_obj}\n"
@@ -355,4 +373,3 @@ def exists(**binds):
         )
 
     return factory
-

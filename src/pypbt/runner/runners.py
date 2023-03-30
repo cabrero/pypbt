@@ -25,7 +25,7 @@ from rich.text import Text
 from rich.traceback import Traceback
 
 from pypbt import PyPBT, domains
-from pypbt.quantifiers import CounterExample, is_qcproperty, PredicateError
+from pypbt.quantifiers import CounterExample, is_qcproperty, ok, PredicateError
 
 
 IGNORE = (
@@ -331,7 +331,7 @@ class PyPbtRunner(ReporterMixin):
         with spinner_progress() as progress:
             task = progress.add_task("Testing...", total= None)
             for i, result in enumerate(prop(env= {}), start= 1):
-                if result:
+                if result is ok:
                     progress.advance(task)
                     self.n_samples += 1
                 elif isinstance(result, CounterExample):
@@ -350,7 +350,7 @@ class PyPbtRunner(ReporterMixin):
                     msg = f"[red]FAILED[/red] after {n_tests}"
                     break
                 else:
-                    raise RuntimeError("fUnkown {result=}")
+                    raise RuntimeError(f"Unkown {result=}")
             else:
                 progress.stop()
                 n_tests = f"{i} tests" if i>1 else "1 test"
