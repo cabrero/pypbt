@@ -1,3 +1,16 @@
+# Cosas para que parezca una herramienta usable:
+
+  - shrinking
+
+  - establecer la semilla inicial
+
+  - repetir sólo los test que fallaron / el último que fallo
+
+  - integrar con coverage
+
+  - salida machine friendly
+
+
 # Escribir tests. Ahora mismo los examples cubren muchos más casos que los tests.
 
 # Completar documentación
@@ -12,16 +25,16 @@ Lista de cosas que suele haber en proper y no estan planteadas
   - recursion
   
 # añadir parametro al cuatificador
-Tiempo de ejecucion en vez de numero de samples.
-O ambas y la que ocurra primero
+  Tiempo de ejecucion en vez de numero de samples.
+  O ambas y la que ocurra primero
 
 # completar test
-De los modulos domain y quantifier
+  De los modulos domain y quantifier
 
 # integrar con pytest
-que el forall se transforme en un test parametrizado
+  UPDATE: No parece posible
 
-# repetir propiedad que fallo
+# repetir propiedad que falló
   - hay que guardar en un fichero la lista de propiedades que fallaron en la última ejecución
   - ¿ se guardaría en el directorio donde se llama ?
   - el módulo random no permite obtener la semilla que se está usando en cada momento. Hay que
